@@ -1,0 +1,19 @@
+import React from 'react';
+
+interface ReflectionCardProps {
+  reflection: string;
+  mood: string;
+  timestamp: Date;
+}
+
+export const ReflectionCard: React.FC<ReflectionCardProps> = ({ reflection, mood, timestamp }) => {
+  return (
+    <div className="p-4 border rounded-lg bg-muted space-y-2">
+      <div className="flex justify-between text-sm text-muted-foreground">
+        <span>{mood}</span>
+        <span>{timestamp.toLocaleString()}</span>
+      </div>
+      <p className="text-foreground">{reflection}</p>
+    </div>
+  );
+};
