@@ -1,0 +1,39 @@
+import React, { useState } from 'react';
+
+interface ApiKeySetupProps {
+  onApiKeySet: (key: string) => void;
+  hasApiKey: boolean;
+}
+
+export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onApiKeySet, hasApiKey }) => {
+  const [input, setInput] = useState('');
+
+  const handleSubmit = () => {
+    if (input.trim()) {
+      onApiKeySet(input.trim());
+      setInput('');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <h2 className="font-medium text-lg">API Key Setup</h2>
+      {hasApiKey ? (
+        <p className="text-sm text-green-600">API key is already saved ✅</p>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            type="password"
+            placeholder="Enter Hugging Face API Key"
+            className="flex-1 px-3 py-2 border rounded"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          <button className="bg-primary text-white px-4 py-2 rounded" onClick={handleSubmit}>
+            Save
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
