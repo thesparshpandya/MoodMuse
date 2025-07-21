@@ -1,0 +1,172 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Loader2, User, Bot } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { MoodTagger } from './MoodTagger';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  detectedMood?: string;
+  intensity?: number;
+}
+
+interface ChatInterfaceProps {
+  messages: ChatMessage[];
+  onSendMessage: (content: string) => void;
+  isLoading: boolean;
+}
+
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  messages,
+  onSendMessage,
+  isLoading
+}) => {
+  const [input, setInput] = useState('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced auto-scroll with smooth behavior
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && !isLoading) {
+      onSendMessage(input.trim());
+      setInput('');
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Enhanced markdown formatting for AI responses
+  const formatMarkdown = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs">$1</code>')
+      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-primary/30 pl-4 my-2 text-muted-foreground italic">$1</blockquote>')
+      .replace(/\n/g, '<br/>');
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-2xl shadow-purple overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-purple px-6 py-4">
+        <h2 className="text-xl font-semibold text-primary-foreground">Your Safe Space</h2>
+        <p className="text-primary-foreground/80 text-sm">Express yourself freely - I'm here to listen and understand</p>
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="h-96 p-6" ref={scrollAreaRef}>
+        {messages.length === 0 ? (
+          <div className="text-center py-12">
+            <Bot className="h-16 w-16 text-primary mx-auto mb-4 opacity-60" />
+            <h3 className="text-lg font-medium text-foreground mb-2">Start Your Conversation</h3>
+            <p className="text-muted-foreground text-sm">
+              Share what's on your mind. I'm here to listen and understand.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex gap-3 max-w-[85%]",
+                  message.role === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                  message.role === 'user' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary text-secondary-foreground"
+                )}>
+                  {message.role === 'user' ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <Bot className="h-4 w-4" />
+                  )}
+                </div>
+                <div className={cn(
+                  "rounded-2xl px-4 py-3",
+                  message.role === 'user'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
+                )}>
+                  <div 
+                    className="text-sm leading-relaxed whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: message.role === 'assistant' 
+                        ? formatMarkdown(message.content)
+                        : message.content
+                    }}
+                  />
+                  <p className={cn(
+                    "text-xs mt-2 opacity-70",
+                    message.role === 'user' ? "text-primary-foreground" : "text-muted-foreground"
+                  )}>
+                    {formatTime(message.timestamp)}
+                  </p>
+                  
+                  {/* Mood Tagger for AI responses */}
+                  {message.role === 'assistant' && (
+                    <MoodTagger message={message.content} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="p-6 border-t border-border bg-muted/20">
+        <div className="flex gap-3">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Share your thoughts, feelings, or anything on your mind..."
+            className="flex-1 min-h-[60px] resize-none border-border bg-background"
+            disabled={isLoading}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="self-end bg-gradient-purple hover:opacity-90 transition-opacity"
+            size="sm"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
