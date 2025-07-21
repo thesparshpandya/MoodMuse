@@ -1,0 +1,167 @@
+import React from 'react';
+import { Heart, Brain, TrendingUp, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  detectedMood?: string;
+  intensity?: number;
+}
+
+interface MoodAnalysisProps {
+  messages: ChatMessage[];
+}
+
+export const MoodAnalysis: React.FC<MoodAnalysisProps> = ({ messages }) => {
+  const userMessages = messages.filter(m => m.role === 'user');
+  const recentMessages = userMessages.slice(-5);
+
+  // Simple mood detection based on keywords (in real app this would be AI-powered)
+  const detectMood = (text: string) => {
+    const moodKeywords = {
+      happy: ['happy', 'joy', 'excited', 'great', 'wonderful', 'amazing', 'love', 'fantastic'],
+      sad: ['sad', 'down', 'depressed', 'hurt', 'cry', 'tears', 'lonely', 'empty'],
+      anxious: ['anxious', 'worried', 'nervous', 'stress', 'panic', 'scared', 'fear'],
+      angry: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'rage', 'upset'],
+      calm: ['calm', 'peaceful', 'relaxed', 'serene', 'tranquil', 'zen', 'balanced']
+    };
+
+    const lowerText = text.toLowerCase();
+    const moodScores: Record<string, number> = {};
+
+    Object.entries(moodKeywords).forEach(([mood, keywords]) => {
+      moodScores[mood] = keywords.filter(keyword => lowerText.includes(keyword)).length;
+    });
+
+    const dominantMood = Object.entries(moodScores).reduce((a, b) => 
+      moodScores[a[0]] > moodScores[b[0]] ? a : b
+    );
+
+    return dominantMood[1] > 0 ? dominantMood[0] : 'neutral';
+  };
+
+  const getMoodColor = (mood: string) => {
+    const colors = {
+      happy: 'bg-yellow-500',
+      sad: 'bg-blue-500',
+      anxious: 'bg-orange-500',
+      angry: 'bg-red-500',
+      calm: 'bg-green-500',
+      neutral: 'bg-gray-500'
+    };
+    return colors[mood as keyof typeof colors] || colors.neutral;
+  };
+
+  const getMoodEmoji = (mood: string) => {
+    const emojis = {
+      happy: '😊',
+      sad: '😢',
+      anxious: '😰',
+      angry: '😠',
+      calm: '😌',
+      neutral: '😐'
+    };
+    return emojis[mood as keyof typeof emojis] || emojis.neutral;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Current Mood */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Heart className="h-5 w-5 text-primary" />
+            Current Mood
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentMessages.length > 0 ? (
+            (() => {
+              const latestMood = detectMood(recentMessages[recentMessages.length - 1].content);
+              return (
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-full ${getMoodColor(latestMood)} flex items-center justify-center text-white text-xl`}>
+                    {getMoodEmoji(latestMood)}
+                  </div>
+                  <div>
+                    <p className="font-medium capitalize text-foreground">{latestMood}</p>
+                    <p className="text-sm text-muted-foreground">Detected from recent message</p>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-muted-foreground text-sm">Share a message to see mood analysis</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Patterns */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Recent Patterns
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentMessages.length > 0 ? (
+            <div className="space-y-3">
+              {recentMessages.slice(-3).map((message, index) => {
+                const mood = detectMood(message.content);
+                return (
+                  <div key={message.id} className="flex items-center gap-3 text-sm">
+                    <span className="text-lg">{getMoodEmoji(mood)}</span>
+                    <div className="flex-1">
+                      <p className="capitalize text-foreground">{mood}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {message.timestamp.toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">No patterns available yet</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Session Stats */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            Session Stats
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Messages shared</span>
+            <span className="font-medium text-foreground">{userMessages.length}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Emotional depth</span>
+            <div className="flex items-center gap-2">
+              <Progress value={Math.min(userMessages.length * 20, 100)} className="w-16 h-2" />
+              <span className="font-medium text-foreground">{Math.min(userMessages.length * 20, 100)}%</span>
+            </div>
+          </div>
+          {userMessages.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                Started {userMessages[0].timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
