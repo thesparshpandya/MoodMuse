@@ -1,8 +1,0 @@
-import React from 'react';
-import { JournalingApp } from './JournalingApp';
-
-const App: React.FC = () => {
-  return <JournalingApp />;
-};
-
-export default App;
