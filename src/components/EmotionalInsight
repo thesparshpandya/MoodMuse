@@ -1,0 +1,260 @@
+import React, { useState, useEffect } from 'react';
+import { Brain, Calendar, TrendingUp, MessageSquare, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  detectedMood?: string;
+  intensity?: number;
+}
+
+interface EmotionalInsightsProps {
+  messages: ChatMessage[];
+  onGenerateInsight: (messages: ChatMessage[]) => Promise<string>;
+}
+
+interface Insight {
+  id: string;
+  content: string;
+  timestamp: Date;
+  messagesAnalyzed: number;
+  type: 'pattern' | 'growth' | 'reflection';
+}
+
+export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({ 
+  messages, 
+  onGenerateInsight 
+}) => {
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<'archive' | 'insights'>('insights');
+
+  const userMessages = messages.filter(m => m.role === 'user');
+
+  // Load insights from localStorage
+  useEffect(() => {
+    const savedInsights = localStorage.getItem('emotional_insights');
+    if (savedInsights) {
+      try {
+        const parsed = JSON.parse(savedInsights);
+        setInsights(parsed.map((insight: any) => ({
+          ...insight,
+          timestamp: new Date(insight.timestamp)
+        })));
+      } catch (error) {
+        console.error('Error loading insights:', error);
+      }
+    }
+  }, []);
+
+  // Save insights to localStorage
+  const saveInsights = (newInsights: Insight[]) => {
+    setInsights(newInsights);
+    localStorage.setItem('emotional_insights', JSON.stringify(newInsights));
+  };
+
+  // Auto-generate insights every 5 user messages
+  useEffect(() => {
+    const shouldGenerateInsight = userMessages.length > 0 && 
+                                  userMessages.length % 5 === 0 && 
+                                  userMessages.length > insights.length * 5;
+
+    if (shouldGenerateInsight) {
+      generateInsight();
+    }
+  }, [userMessages.length]);
+
+  const generateInsight = async () => {
+    if (isGenerating || userMessages.length < 3) return;
+
+    setIsGenerating(true);
+    try {
+      // Take the last 10 messages for analysis
+      const recentMessages = userMessages.slice(-10);
+      const insightContent = await onGenerateInsight(recentMessages);
+      
+      const newInsight: Insight = {
+        id: Date.now().toString(),
+        content: insightContent,
+        timestamp: new Date(),
+        messagesAnalyzed: recentMessages.length,
+        type: determineInsightType(insightContent)
+      };
+
+      saveInsights([...insights, newInsight]);
+    } catch (error) {
+      console.error('Error generating insight:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const determineInsightType = (content: string): 'pattern' | 'growth' | 'reflection' => {
+    const lowerContent = content.toLowerCase();
+    if (lowerContent.includes('pattern') || lowerContent.includes('tend') || lowerContent.includes('often')) {
+      return 'pattern';
+    }
+    if (lowerContent.includes('grow') || lowerContent.includes('progress') || lowerContent.includes('better')) {
+      return 'growth';
+    }
+    return 'reflection';
+  };
+
+  const getInsightIcon = (type: string) => {
+    switch (type) {
+      case 'pattern': return <TrendingUp className="h-4 w-4" />;
+      case 'growth': return <Brain className="h-4 w-4" />;
+      default: return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  const getInsightColor = (type: string) => {
+    switch (type) {
+      case 'pattern': return 'bg-blue-500/10 text-blue-600 border-blue-200';
+      case 'growth': return 'bg-green-500/10 text-green-600 border-green-200';
+      default: return 'bg-purple-500/10 text-purple-600 border-purple-200';
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString([], { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <Card className="border-border bg-card/50 backdrop-blur-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" />
+            Emotional Journey
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'insights' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('insights')}
+              className="text-xs"
+            >
+              Insights
+            </Button>
+            <Button
+              variant={viewMode === 'archive' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('archive')}
+              className="text-xs"
+            >
+              Archive
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent>
+        {viewMode === 'insights' ? (
+          <div className="space-y-4">
+            {/* Latest Insight */}
+            {insights.length > 0 && (
+              <div className="p-4 rounded-lg bg-gradient-subtle border border-border/50">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${getInsightColor(insights[insights.length - 1].type)}`}>
+                    {getInsightIcon(insights[insights.length - 1].type)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                      {insights[insights.length - 1].content}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        {insights[insights.length - 1].type}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(insights[insights.length - 1].timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Generation Status */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Messages until next insight: {userMessages.length % 5 === 0 ? 5 : 5 - (userMessages.length % 5)}
+              </span>
+              {isGenerating && (
+                <span className="text-primary animate-pulse">Generating insight...</span>
+              )}
+            </div>
+
+            {/* Manual Generate Button */}
+            {userMessages.length >= 3 && (
+              <Button
+                onClick={generateInsight}
+                disabled={isGenerating}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                {isGenerating ? 'Analyzing...' : 'Generate New Insight'}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <ScrollArea className="h-64">
+            {insights.length > 0 ? (
+              <div className="space-y-3">
+                {insights.slice().reverse().map((insight) => (
+                  <div
+                    key={insight.id}
+                    className="p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`p-1.5 rounded ${getInsightColor(insight.type)}`}>
+                        {getInsightIcon(insight.type)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {insight.content.length > 100 
+                            ? `${insight.content.substring(0, 100)}...` 
+                            : insight.content
+                          }
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs">
+                            {insight.messagesAnalyzed} messages
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(insight.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-sm text-muted-foreground">
+                  No insights yet. Keep journaling to unlock emotional patterns.
+                </p>
+              </div>
+            )}
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
