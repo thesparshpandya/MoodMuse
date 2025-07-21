@@ -1,0 +1,290 @@
+import React, { useState, useEffect } from 'react';
+import { Flame, Calendar, Target, Bell, BellOff } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+
+interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastEntryDate: string;
+  totalDays: number;
+  streakHistory: string[]; // Array of dates
+}
+
+interface StreakTrackerProps {
+  hasEntryToday: boolean;
+  className?: string;
+}
+
+export const StreakTracker: React.FC<StreakTrackerProps> = ({ 
+  hasEntryToday, 
+  className = "" 
+}) => {
+  const [streakData, setStreakData] = useState<StreakData>({
+    currentStreak: 0,
+    longestStreak: 0,
+    lastEntryDate: '',
+    totalDays: 0,
+    streakHistory: []
+  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const { toast } = useToast();
+
+  // Load streak data from localStorage
+  useEffect(() => {
+    const savedStreak = localStorage.getItem('journal_streak');
+    if (savedStreak) {
+      try {
+        setStreakData(JSON.parse(savedStreak));
+      } catch (error) {
+        console.error('Error loading streak data:', error);
+      }
+    }
+    
+    // Check notification permission
+    setNotificationsEnabled(Notification.permission === 'granted');
+  }, []);
+
+  // Save streak data to localStorage
+  const saveStreakData = (data: StreakData) => {
+    setStreakData(data);
+    localStorage.setItem('journal_streak', JSON.stringify(data));
+  };
+
+  // Update streak when user makes an entry
+  useEffect(() => {
+    if (hasEntryToday) {
+      updateStreak();
+    }
+  }, [hasEntryToday]);
+
+  const updateStreak = () => {
+    const today = new Date().toDateString();
+    
+    if (streakData.lastEntryDate === today) {
+      return; // Already updated today
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+
+    let newCurrentStreak = 1;
+    
+    // Check if we're continuing a streak
+    if (streakData.lastEntryDate === yesterdayStr) {
+      newCurrentStreak = streakData.currentStreak + 1;
+    }
+
+    const newData: StreakData = {
+      currentStreak: newCurrentStreak,
+      longestStreak: Math.max(newCurrentStreak, streakData.longestStreak),
+      lastEntryDate: today,
+      totalDays: streakData.totalDays + 1,
+      streakHistory: [...streakData.streakHistory, today]
+    };
+
+    saveStreakData(newData);
+
+    // Show achievement toast for milestones
+    if (newCurrentStreak === 1 && streakData.currentStreak === 0) {
+      toast({
+        title: "🌱 Journey Begins!",
+        description: "You've started your journaling streak. Every voice matters.",
+      });
+    } else if ([3, 7, 14, 30, 100].includes(newCurrentStreak)) {
+      const messages = {
+        3: "🔥 3-day streak! You're building a beautiful habit.",
+        7: "⭐ One week strong! Your emotional awareness is growing.",
+        14: "💎 Two weeks of reflection! You're developing deep self-insight.",
+        30: "🏆 30-day milestone! Your emotional intelligence is flourishing.",
+        100: "🌟 100 days! You've mastered the art of self-reflection."
+      };
+      
+      toast({
+        title: "Streak Milestone!",
+        description: messages[newCurrentStreak as keyof typeof messages],
+      });
+    }
+  };
+
+  // Check if streak was broken
+  useEffect(() => {
+    const checkStreakBroken = () => {
+      if (!streakData.lastEntryDate) return;
+
+      const today = new Date();
+      const lastEntry = new Date(streakData.lastEntryDate);
+      const daysSinceLastEntry = Math.floor((today.getTime() - lastEntry.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysSinceLastEntry > 1 && streakData.currentStreak > 0) {
+        // Streak is broken
+        const brokenData: StreakData = {
+          ...streakData,
+          currentStreak: 0
+        };
+        saveStreakData(brokenData);
+      }
+    };
+
+    checkStreakBroken();
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationsEnabled(permission === 'granted');
+      
+      if (permission === 'granted') {
+        scheduleReminder();
+        toast({
+          title: "Reminders Enabled",
+          description: "We'll gently remind you to journal each day.",
+        });
+      } else {
+        toast({
+          title: "Reminders Disabled",
+          description: "You can enable them anytime in your browser settings.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+    }
+  };
+
+  const scheduleReminder = () => {
+    // Schedule a daily reminder (this is a simplified version)
+    // In a real app, you'd want to use a service worker for persistent notifications
+    const reminderTime = 20; // 8 PM
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(reminderTime, 0, 0, 0);
+
+    if (scheduledTime <= now) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    const timeUntilReminder = scheduledTime.getTime() - now.getTime();
+
+    setTimeout(() => {
+      if (Notification.permission === 'granted' && !hasEntryToday) {
+        new Notification('MoodMuse Reminder', {
+          body: "Take a moment to reflect on your day. Your emotions matter.",
+          icon: '/favicon.ico',
+          badge: '/favicon.ico'
+        });
+      }
+    }, timeUntilReminder);
+  };
+
+  const getStreakEmoji = (streak: number) => {
+    if (streak === 0) return '🌱';
+    if (streak < 7) return '🔥';
+    if (streak < 30) return '⭐';
+    if (streak < 100) return '💎';
+    return '🌟';
+  };
+
+  const getEncouragementMessage = () => {
+    const { currentStreak } = streakData;
+    
+    if (currentStreak === 0) {
+      return "Ready to begin your emotional journey?";
+    }
+    if (currentStreak < 7) {
+      return "You're building momentum. Keep going!";
+    }
+    if (currentStreak < 30) {
+      return "Your consistency is inspiring!";
+    }
+    return "You've mastered the art of reflection!";
+  };
+
+  return (
+    <Card className={`border-border bg-card/50 backdrop-blur-sm ${className}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Flame className="h-5 w-5 text-primary" />
+          Journal Streak
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Current Streak Display */}
+        <div className="text-center p-4 rounded-lg bg-gradient-subtle border border-border/50">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-3xl" role="img" aria-label="streak">
+              {getStreakEmoji(streakData.currentStreak)}
+            </span>
+            <span className="text-2xl font-bold text-foreground">
+              {streakData.currentStreak}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {streakData.currentStreak === 1 ? 'day' : 'days'} in a row
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {getEncouragementMessage()}
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg bg-card border border-border/50 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Target className="h-4 w-4 text-primary" />
+              <span className="font-bold text-foreground">{streakData.longestStreak}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Best Streak</p>
+          </div>
+          
+          <div className="p-3 rounded-lg bg-card border border-border/50 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span className="font-bold text-foreground">{streakData.totalDays}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Total Days</p>
+          </div>
+        </div>
+
+        {/* Today's Status */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Today's entry:</span>
+          <Badge variant={hasEntryToday ? "default" : "outline"}>
+            {hasEntryToday ? "Complete ✓" : "Pending"}
+          </Badge>
+        </div>
+
+        {/* Reminder Settings */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2">
+            {notificationsEnabled ? (
+              <Bell className="h-4 w-4 text-primary" />
+            ) : (
+              <BellOff className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-sm text-foreground">Daily Reminders</span>
+          </div>
+          
+          {!notificationsEnabled ? (
+            <Button
+              onClick={requestNotificationPermission}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Enable
+            </Button>
+          ) : (
+            <Badge variant="secondary" className="text-xs">
+              Active
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
