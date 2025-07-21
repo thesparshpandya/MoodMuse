@@ -1,0 +1,120 @@
+import React from 'react';
+import { Progress } from '@/components/ui/progress';
+
+interface MoodTaggerProps {
+  message: string;
+  className?: string;
+}
+
+export const MoodTagger: React.FC<MoodTaggerProps> = ({ message, className = "" }) => {
+  // Enhanced mood detection with sentiment analysis
+  const analyzeMood = (text: string) => {
+    const lowerText = text.toLowerCase();
+    
+    const moodPatterns = {
+      // Positive emotions
+      joyful: { keywords: ['amazing', 'fantastic', 'incredible', 'wonderful', 'brilliant', 'perfect'], intensity: 0.9, emoji: '🌟' },
+      happy: { keywords: ['happy', 'joy', 'excited', 'great', 'good', 'love', 'awesome'], intensity: 0.7, emoji: '😊' },
+      grateful: { keywords: ['grateful', 'thankful', 'blessed', 'appreciate', 'lucky'], intensity: 0.6, emoji: '🙏' },
+      hopeful: { keywords: ['hope', 'optimistic', 'future', 'better', 'improve', 'forward'], intensity: 0.6, emoji: '🌅' },
+      
+      // Negative emotions
+      devastated: { keywords: ['devastated', 'destroyed', 'shattered', 'broken', 'crushed'], intensity: 0.9, emoji: '💔' },
+      sad: { keywords: ['sad', 'down', 'depressed', 'hurt', 'cry', 'tears', 'lonely', 'empty'], intensity: 0.7, emoji: '😢' },
+      anxious: { keywords: ['anxious', 'worried', 'nervous', 'stress', 'panic', 'scared', 'fear'], intensity: 0.8, emoji: '😰' },
+      angry: { keywords: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'rage', 'upset'], intensity: 0.8, emoji: '😤' },
+      
+      // Neutral/Complex emotions
+      confused: { keywords: ['confused', 'lost', 'unclear', 'mixed', 'torn', 'uncertain'], intensity: 0.5, emoji: '🤔' },
+      tired: { keywords: ['tired', 'exhausted', 'drained', 'worn', 'weary', 'fatigue'], intensity: 0.6, emoji: '😴' },
+      calm: { keywords: ['calm', 'peaceful', 'relaxed', 'serene', 'tranquil', 'zen', 'balanced'], intensity: 0.4, emoji: '😌' },
+      reflective: { keywords: ['thinking', 'reflect', 'consider', 'ponder', 'contemplate'], intensity: 0.4, emoji: '🤍' }
+    };
+
+    let detectedMood = 'neutral';
+    let maxScore = 0;
+    let intensity = 0.3;
+
+    Object.entries(moodPatterns).forEach(([mood, data]) => {
+      const score = data.keywords.filter(keyword => lowerText.includes(keyword)).length;
+      if (score > maxScore) {
+        maxScore = score;
+        detectedMood = mood;
+        intensity = data.intensity;
+      }
+    });
+
+    // Intensity modifiers
+    const intensifiers = ['very', 'extremely', 'incredibly', 'absolutely', 'completely', 'totally'];
+    const diminishers = ['slightly', 'somewhat', 'a bit', 'kind of', 'sort of', 'maybe'];
+    
+    if (intensifiers.some(word => lowerText.includes(word))) {
+      intensity = Math.min(intensity + 0.2, 1.0);
+    }
+    if (diminishers.some(word => lowerText.includes(word))) {
+      intensity = Math.max(intensity - 0.2, 0.1);
+    }
+
+    return {
+      mood: detectedMood,
+      intensity: intensity,
+      emoji: moodPatterns[detectedMood as keyof typeof moodPatterns]?.emoji || '😐',
+      confidence: maxScore > 0 ? Math.min(maxScore * 0.3, 1.0) : 0.2
+    };
+  };
+
+  const analysis = analyzeMood(message);
+  const intensityPercent = Math.round(analysis.intensity * 100);
+
+  const getMoodColor = (mood: string, intensity: number) => {
+    const baseColors = {
+      joyful: 'hsl(45, 90%, 60%)',
+      happy: 'hsl(45, 80%, 65%)',
+      grateful: 'hsl(120, 60%, 60%)',
+      hopeful: 'hsl(200, 70%, 60%)',
+      devastated: 'hsl(0, 70%, 45%)',
+      sad: 'hsl(220, 60%, 50%)',
+      anxious: 'hsl(25, 80%, 55%)',
+      angry: 'hsl(0, 65%, 55%)',
+      confused: 'hsl(280, 50%, 60%)',
+      tired: 'hsl(240, 30%, 55%)',
+      calm: 'hsl(120, 40%, 60%)',
+      reflective: 'hsl(240, 20%, 60%)',
+      neutral: 'hsl(0, 0%, 60%)'
+    };
+    
+    return baseColors[mood as keyof typeof baseColors] || baseColors.neutral;
+  };
+
+  if (analysis.mood === 'neutral' && analysis.confidence < 0.3) {
+    return null;
+  }
+
+  return (
+    <div className={`flex items-center gap-3 mt-3 p-3 rounded-lg bg-card/30 border border-border/50 ${className}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg" role="img" aria-label={analysis.mood}>
+          {analysis.emoji}
+        </span>
+        <span className="text-sm font-medium text-foreground capitalize">
+          {analysis.mood}
+        </span>
+      </div>
+      
+      <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1">
+          <Progress 
+            value={intensityPercent} 
+            className="h-2"
+            style={{
+              '--progress-background': getMoodColor(analysis.mood, analysis.intensity)
+            } as React.CSSProperties}
+          />
+        </div>
+        <span className="text-xs text-muted-foreground font-mono">
+          {intensityPercent}%
+        </span>
+      </div>
+    </div>
+  );
+};
