@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Brain, Sparkles, TrendingUp, MessageCircle } from 'lucide-react';
+import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatInterface } from './ChatInterface';
 import { MoodAnalysis } from './MoodAnalysis';
 import { ApiKeySetup } from './ApiKeySetup';
 import { EmotionalInsights } from './EmotionalInsights';
 import { StreakTracker } from './StreakTracker';
+import { ReflectionPrompts } from './ReflectionPrompts';
+import { ThemeSettings } from './ThemeSettings';
+import { ReflectionTimeline } from './ReflectionTimeline';
+import { OnboardingFlow } from './OnboardingFlow';
+import { ThemeProvider } from './ThemeProvider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface ChatMessage {
   id: string;
@@ -18,10 +26,19 @@ interface ChatMessage {
 
 const GEMINI_MODEL = 'gemini-1.5-flash';
 
+interface OnboardingData {
+  name: string;
+  preferredTone: 'gentle' | 'neutral' | 'direct';
+  journalingFrequency: 'daily' | 'weekly' | 'custom';
+}
+
 export const MoodMuse: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
+  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [userPreferences, setUserPreferences] = useState<OnboardingData | null>(null);
+  const [activeTab, setActiveTab] = useState('journal');
   const { toast } = useToast();
 
   // Check if user has journaled today for streak tracking
@@ -36,6 +53,15 @@ export const MoodMuse: React.FC = () => {
     const savedApiKey = localStorage.getItem('gemini_api_key');
     if (savedApiKey) {
       setApiKey(savedApiKey);
+    }
+
+    // Load onboarding status and preferences
+    const savedOnboarding = localStorage.getItem('moodmuse_onboarded');
+    const savedPreferences = localStorage.getItem('moodmuse_preferences');
+    
+    if (savedOnboarding === 'true' && savedPreferences) {
+      setIsOnboarded(true);
+      setUserPreferences(JSON.parse(savedPreferences));
     }
 
     // Load previous messages
@@ -212,8 +238,28 @@ export const MoodMuse: React.FC = () => {
     return await generateResponse(conversation);
   };
 
+  const handleOnboardingComplete = (data: OnboardingData) => {
+    setUserPreferences(data);
+    setIsOnboarded(true);
+    localStorage.setItem('moodmuse_onboarded', 'true');
+    localStorage.setItem('moodmuse_preferences', JSON.stringify(data));
+  };
+
+  const handlePromptInsert = (prompt: string) => {
+    // This will be handled by the ChatInterface component
+  };
+
+  if (!isOnboarded) {
+    return (
+      <ThemeProvider>
+        <OnboardingFlow onComplete={handleOnboardingComplete} />
+      </ThemeProvider>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
+    <ThemeProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
       {/* Header */}
       <div className="bg-gradient-purple shadow-purple">
         <div className="max-w-6xl mx-auto px-6 py-8">
@@ -241,54 +287,108 @@ export const MoodMuse: React.FC = () => {
                 <span>Empathetic AI</span>
               </div>
             </div>
+              <div className="flex items-center gap-4">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-primary-foreground/80 hover:text-primary-foreground">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <ThemeSettings />
+                  </DialogContent>
+                </Dialog>
+                {userPreferences?.name && (
+                  <span className="text-primary-foreground/90 text-sm">
+                    Welcome back, {userPreferences.name}!
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* API Key Setup */}
-        <div className="mb-8">
-          <ApiKeySetup onApiKeySet={saveApiKey} hasApiKey={!!apiKey} />
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Chat Interface */}
-          <div className="lg:col-span-2">
-            <ChatInterface
-              messages={messages}
-              onSendMessage={sendMessage}
-              isLoading={isLoading}
-            />
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          {/* API Key Setup */}
+          <div className="mb-8">
+            <ApiKeySetup onApiKeySet={saveApiKey} hasApiKey={!!apiKey} />
           </div>
 
-          {/* Enhanced Sidebar */}
-          <div className="space-y-6">
-            {/* Streak Tracker */}
-            <StreakTracker hasEntryToday={hasEntryToday} />
-            
-            {/* Emotional Insights */}
-            <EmotionalInsights 
-              messages={messages} 
-              onGenerateInsight={generateEmotionalInsight}
-            />
-            
-            {/* Mood Analysis */}
-            <MoodAnalysis messages={messages} />
-            
-            {/* Model Status */}
-            {apiKey && (
-              <div className="p-4 bg-card border border-border rounded-xl">
-                <h4 className="font-medium text-sm text-foreground mb-2">Active Model</h4>
-                <p className="text-xs text-muted-foreground">{GEMINI_MODEL}</p>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  Ready for emotional support
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="journal" className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Journal
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Look Back
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Insights
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="journal" className="space-y-8">
+              <div className="grid gap-8 lg:grid-cols-3">
+                {/* Chat Interface */}
+                <div className="lg:col-span-2 space-y-6">
+                  <ReflectionPrompts onPromptSelect={handlePromptInsert} />
+                  <ChatInterface
+                    messages={messages}
+                    onSendMessage={sendMessage}
+                    isLoading={isLoading}
+                    onPromptInsert={handlePromptInsert}
+                  />
+                </div>
+
+                {/* Enhanced Sidebar */}
+                <div className="space-y-6">
+                  {/* Streak Tracker */}
+                  <StreakTracker hasEntryToday={hasEntryToday} />
+                  
+                  {/* Emotional Insights */}
+                  <EmotionalInsights 
+                    messages={messages} 
+                    onGenerateInsight={generateEmotionalInsight}
+                  />
+                  
+                  {/* Mood Analysis */}
+                  <MoodAnalysis messages={messages} />
+                  
+                  {/* Model Status */}
+                  {apiKey && (
+                    <div className="p-4 bg-card border border-border rounded-xl">
+                      <h4 className="font-medium text-sm text-foreground mb-2">Active Model</h4>
+                      <p className="text-xs text-muted-foreground">{GEMINI_MODEL}</p>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Ready for emotional support
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="timeline" className="space-y-8">
+              <ReflectionTimeline messages={messages} />
+            </TabsContent>
+
+            <TabsContent value="insights" className="space-y-8">
+              <div className="grid gap-8 lg:grid-cols-2">
+                <EmotionalInsights 
+                  messages={messages} 
+                  onGenerateInsight={generateEmotionalInsight}
+                />
+                <MoodAnalysis messages={messages} />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 };
