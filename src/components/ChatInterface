@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { MoodTagger } from './MoodTagger';
+import { MoodPreSelector } from './MoodPreSelector';
 
 interface ChatMessage {
   id: string;
@@ -19,14 +20,19 @@ interface ChatInterfaceProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
   isLoading: boolean;
+  onPromptInsert?: (prompt: string) => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
   onSendMessage,
-  isLoading
+  isLoading,
+  onPromptInsert
 }) => {
   const [input, setInput] = useState('');
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedMoodEmoji, setSelectedMoodEmoji] = useState<string>('');
+  const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Enhanced auto-scroll with smooth behavior
@@ -45,9 +51,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
-      onSendMessage(input.trim());
+      // Show typing indicator
+      setIsTyping(true);
+      
+      const messageContent = selectedMood 
+        ? `Mood: ${selectedMoodEmoji} ${selectedMood}\n\n${input.trim()}`
+        : input.trim();
+      
+      onSendMessage(messageContent);
       setInput('');
+      setSelectedMood(null);
+      setSelectedMoodEmoji('');
+      
+      // Hide typing indicator after a delay
+      setTimeout(() => setIsTyping(false), 1000);
     }
+  };
+
+  const handlePromptInsert = (prompt: string) => {
+    setInput(prev => prev ? `${prev}\n\n${prompt}` : prompt);
+    onPromptInsert?.(prompt);
+  };
+
+  const handleMoodSelect = (mood: string, emoji: string) => {
+    setSelectedMood(mood);
+    setSelectedMoodEmoji(emoji);
   };
 
   const formatTime = (date: Date) => {
@@ -133,30 +161,71 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               </div>
             ))}
+            
+            {/* Typing Indicator */}
+            {(isLoading || isTyping) && (
+              <div className="flex gap-3 max-w-[85%] mr-auto">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary text-secondary-foreground">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <div className="rounded-2xl px-4 py-3 bg-secondary text-secondary-foreground">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-6 border-t border-border bg-muted/20">
+      <form onSubmit={handleSubmit} className="p-6 border-t border-border bg-muted/20 space-y-4">
+        {/* Mood Pre-selector */}
+        <MoodPreSelector 
+          selectedMood={selectedMood}
+          onMoodSelect={handleMoodSelect}
+        />
+        
         <div className="flex gap-3">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Share your thoughts, feelings, or anything on your mind..."
-            className="flex-1 min-h-[60px] resize-none border-border bg-background"
-            disabled={isLoading}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-          />
+          <div className="flex-1 space-y-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Share your thoughts, feelings, or anything on your mind..."
+              className="min-h-[80px] resize-none border-border bg-background rounded-2xl"
+              disabled={isLoading}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+            />
+            {selectedMood && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Mood: {selectedMoodEmoji} {selectedMood}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMood(null);
+                    setSelectedMoodEmoji('');
+                  }}
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                >
+                  ×
+                </Button>
+              </div>
+            )}
+          </div>
           <Button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="self-end bg-gradient-purple hover:opacity-90 transition-opacity"
+            className="self-end bg-gradient-purple hover:opacity-90 transition-opacity rounded-2xl"
             size="sm"
           >
             {isLoading ? (
