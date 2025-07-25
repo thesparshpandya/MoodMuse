@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Calendar, Pin, PinOff, TrendingUp, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +29,7 @@ interface TimelineEntry {
   isPinned: boolean;
 }
 
-export const ReflectionTimeline: React.FC<ReflectionTimelineProps> = ({ messages }) => {
+export const ReflectionTimeline: React.FC<ReflectionTimelineProps> = React.memo(({ messages }) => {
   const [pinnedEntries, setPinnedEntries] = useState<Set<string>>(new Set());
 
   const timelineEntries = useMemo(() => {
@@ -75,7 +75,7 @@ export const ReflectionTimeline: React.FC<ReflectionTimelineProps> = ({ messages
     });
   }, [messages, pinnedEntries]);
 
-  const togglePin = (entryId: string) => {
+  const togglePin = useCallback((entryId: string) => {
     const newPinned = new Set(pinnedEntries);
     if (newPinned.has(entryId)) {
       newPinned.delete(entryId);
@@ -83,7 +83,7 @@ export const ReflectionTimeline: React.FC<ReflectionTimelineProps> = ({ messages
       newPinned.add(entryId);
     }
     setPinnedEntries(newPinned);
-  };
+  }, [pinnedEntries]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
@@ -200,7 +200,7 @@ export const ReflectionTimeline: React.FC<ReflectionTimelineProps> = ({ messages
       </div>
     </div>
   );
-};
+});
 
 interface TimelineCardProps {
   entry: TimelineEntry;
@@ -209,7 +209,7 @@ interface TimelineCardProps {
   getMoodColor: (intensity: number) => string;
 }
 
-const TimelineCard: React.FC<TimelineCardProps> = ({ 
+const TimelineCard: React.FC<TimelineCardProps> = React.memo(({ 
   entry, 
   onTogglePin, 
   formatDate, 
@@ -271,4 +271,4 @@ const TimelineCard: React.FC<TimelineCardProps> = ({
       </Dialog>
     </CardContent>
   </Card>
-);
+));
