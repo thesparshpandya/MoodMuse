@@ -48,7 +48,7 @@ This journey is less about writing code and more about **building with AI**, sha
 These steps are currently valid once you’ve cloned the project locally:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/moodmuse.git
+git clone https://github.com/thesparshpandya/MoodMuse
 cd moodmuse
 npm install
 npm run dev
