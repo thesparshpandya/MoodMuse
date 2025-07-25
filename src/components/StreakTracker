@@ -18,7 +18,7 @@ interface StreakTrackerProps {
   className?: string;
 }
 
-export const StreakTracker: React.FC<StreakTrackerProps> = ({ 
+export const StreakTracker: React.FC<StreakTrackerProps> = React.memo(({ 
   hasEntryToday, 
   className = "" 
 }) => {
@@ -287,4 +287,4 @@ export const StreakTracker: React.FC<StreakTrackerProps> = ({
       </CardContent>
     </Card>
   );
-};
+});
