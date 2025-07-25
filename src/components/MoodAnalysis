@@ -16,9 +16,11 @@ interface MoodAnalysisProps {
   messages: ChatMessage[];
 }
 
-export const MoodAnalysis: React.FC<MoodAnalysisProps> = ({ messages }) => {
-  const userMessages = messages.filter(m => m.role === 'user');
-  const recentMessages = userMessages.slice(-5);
+export const MoodAnalysis: React.FC<MoodAnalysisProps> = React.memo(({ messages }) => {
+  const userMessages = React.useMemo(() => 
+    messages.filter(m => m.role === 'user'), [messages]);
+  const recentMessages = React.useMemo(() => 
+    userMessages.slice(-5), [userMessages]);
 
   // Simple mood detection based on keywords (in real app this would be AI-powered)
   const detectMood = (text: string) => {
@@ -164,4 +166,4 @@ export const MoodAnalysis: React.FC<MoodAnalysisProps> = ({ messages }) => {
       </Card>
     </div>
   );
-};
+});
