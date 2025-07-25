@@ -27,7 +27,7 @@ interface Insight {
   type: 'pattern' | 'growth' | 'reflection';
 }
 
-export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({ 
+export const EmotionalInsights: React.FC<EmotionalInsightsProps> = React.memo(({ 
   messages, 
   onGenerateInsight 
 }) => {
@@ -35,7 +35,8 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<'archive' | 'insights'>('insights');
 
-  const userMessages = messages.filter(m => m.role === 'user');
+  const userMessages = React.useMemo(() => 
+    messages.filter(m => m.role === 'user'), [messages]);
 
   // Load insights from localStorage
   useEffect(() => {
@@ -70,7 +71,7 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({
     }
   }, [userMessages.length]);
 
-  const generateInsight = async () => {
+  const generateInsight = React.useCallback(async () => {
     if (isGenerating || userMessages.length < 3) return;
 
     setIsGenerating(true);
@@ -93,7 +94,7 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [isGenerating, userMessages, onGenerateInsight, insights]);
 
   const determineInsightType = (content: string): 'pattern' | 'growth' | 'reflection' => {
     const lowerContent = content.toLowerCase();
@@ -257,4 +258,4 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = ({
       </CardContent>
     </Card>
   );
-};
+});
