@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChatInterface } from './ChatInterface';
 import { MoodAnalysis } from './MoodAnalysis';
@@ -11,6 +11,8 @@ import { ThemeSettings } from './ThemeSettings';
 import { ReflectionTimeline } from './ReflectionTimeline';
 import { OnboardingFlow } from './OnboardingFlow';
 import { ThemeProvider } from './ThemeProvider';
+import { MoodChart } from './MoodChart';
+import { SearchInterface } from './SearchInterface';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,12 +43,11 @@ export const MoodMuse: React.FC = () => {
   const [activeTab, setActiveTab] = useState('journal');
   const { toast } = useToast();
 
-  // Check if user has journaled today for streak tracking
+  // Check if user has journaled today for streak tracking (optimized to only check date)
   const hasEntryToday = useMemo(() => {
     const today = new Date().toDateString();
-    const userMessages = messages.filter(m => m.role === 'user');
-    return userMessages.some(m => m.timestamp.toDateString() === today);
-  }, [messages]);
+    return messages.some(m => m.role === 'user' && m.timestamp.toDateString() === today);
+  }, [messages.length, new Date().toDateString()]);
 
   useEffect(() => {
     // Load API key from localStorage
@@ -119,10 +120,12 @@ export const MoodMuse: React.FC = () => {
     });
   };
 
-  const saveMessages = (newMessages: ChatMessage[]) => {
+  const saveMessages = useCallback((newMessages: ChatMessage[]) => {
     setMessages(newMessages);
-    localStorage.setItem('moodmuse_messages', JSON.stringify(newMessages));
-  };
+    // Limit stored messages to last 100 to prevent localStorage bloat
+    const limitedMessages = newMessages.slice(-100);
+    localStorage.setItem('moodmuse_messages', JSON.stringify(limitedMessages));
+  }, []);
 
   const generateResponse = async (conversation: any[]): Promise<string> => {
     console.log(`Using Gemini model: ${GEMINI_MODEL}`);
@@ -159,7 +162,7 @@ export const MoodMuse: React.FC = () => {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm here for you. Thank you for sharing with me.";
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = useCallback(async (content: string) => {
     if (!apiKey) {
       toast({
         title: "API Key Required",
@@ -220,7 +223,7 @@ export const MoodMuse: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiKey, messages, saveMessages, toast]);
 
   // Generate emotional insights
   const generateEmotionalInsight = async (recentMessages: ChatMessage[]): Promise<string> => {
@@ -238,16 +241,16 @@ export const MoodMuse: React.FC = () => {
     return await generateResponse(conversation);
   };
 
-  const handleOnboardingComplete = (data: OnboardingData) => {
+  const handleOnboardingComplete = useCallback((data: OnboardingData) => {
     setUserPreferences(data);
     setIsOnboarded(true);
     localStorage.setItem('moodmuse_onboarded', 'true');
     localStorage.setItem('moodmuse_preferences', JSON.stringify(data));
-  };
+  }, []);
 
-  const handlePromptInsert = (prompt: string) => {
+  const handlePromptInsert = useCallback((prompt: string) => {
     // This will be handled by the ChatInterface component
-  };
+  }, []);
 
   if (!isOnboarded) {
     return (
@@ -316,18 +319,26 @@ export const MoodMuse: React.FC = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="journal" className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Journal
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="journal" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Journal</span>
+                <span className="xs:hidden">Write</span>
               </TabsTrigger>
-              <TabsTrigger value="timeline" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Look Back
+              <TabsTrigger value="search" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Search</span>
+                <span className="xs:hidden">Find</span>
               </TabsTrigger>
-              <TabsTrigger value="insights" className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Insights
+              <TabsTrigger value="timeline" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Look Back</span>
+                <span className="xs:hidden">History</span>
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Insights</span>
+                <span className="xs:hidden">Trends</span>
               </TabsTrigger>
             </TabsList>
 
@@ -373,16 +384,29 @@ export const MoodMuse: React.FC = () => {
               </div>
             </TabsContent>
 
+            <TabsContent value="search" className="space-y-8">
+              <SearchInterface 
+                messages={messages}
+                onResultSelect={(message) => {
+                  // Scroll to message or show details
+                  console.log('Selected message:', message);
+                }}
+              />
+            </TabsContent>
+
             <TabsContent value="timeline" className="space-y-8">
               <ReflectionTimeline messages={messages} />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-8">
               <div className="grid gap-8 lg:grid-cols-2">
-                <EmotionalInsights 
-                  messages={messages} 
-                  onGenerateInsight={generateEmotionalInsight}
-                />
+                <div className="space-y-6">
+                  <MoodChart messages={messages} />
+                  <EmotionalInsights 
+                    messages={messages} 
+                    onGenerateInsight={generateEmotionalInsight}
+                  />
+                </div>
                 <MoodAnalysis messages={messages} />
               </div>
             </TabsContent>
