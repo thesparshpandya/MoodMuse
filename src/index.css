@@ -113,3 +113,39 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Micro-interactions and animations */
+  .btn-hover {
+    @apply transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-lg;
+  }
+  
+  .btn-press {
+    @apply active:scale-95 transition-transform duration-100;
+  }
+  
+  .fade-in {
+    @apply animate-in fade-in-0 duration-300;
+  }
+  
+  .slide-up {
+    @apply animate-in slide-in-from-bottom-2 duration-300;
+  }
+  
+  .copy-success {
+    @apply animate-in fade-in-0 zoom-in-95 duration-200;
+  }
+  
+  /* Responsive utilities */
+  .container-responsive {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .text-responsive {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .spacing-responsive {
+    @apply space-y-4 sm:space-y-6 lg:space-y-8;
+  }
+}
