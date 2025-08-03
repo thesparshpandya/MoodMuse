@@ -23,6 +23,61 @@ interface MoodDataPoint {
   emoji: string;
 }
 
+const detectMood = (text: string): string => {
+  const moodKeywords = {
+    happy: ['happy', 'joy', 'excited', 'great', 'wonderful', 'amazing', 'love', 'fantastic'],
+    sad: ['sad', 'down', 'depressed', 'hurt', 'cry', 'tears', 'lonely', 'empty'],
+    anxious: ['anxious', 'worried', 'nervous', 'stress', 'panic', 'scared', 'fear'],
+    angry: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'rage', 'upset'],
+    calm: ['calm', 'peaceful', 'relaxed', 'serene', 'tranquil', 'zen', 'balanced']
+  };
+
+  const lowerText = text.toLowerCase();
+  const moodScores: Record<string, number> = {};
+
+  Object.entries(moodKeywords).forEach(([mood, keywords]) => {
+    moodScores[mood] = keywords.filter(keyword => lowerText.includes(keyword)).length;
+  });
+
+  const dominantMood = Object.entries(moodScores).reduce((a, b) => 
+    moodScores[a[0]] > moodScores[b[0]] ? a : b
+  );
+
+  return dominantMood[1] > 0 ? dominantMood[0] : 'neutral';
+};
+
+const calculateIntensity = (text: string): number => {
+  const intensityWords = ['very', 'extremely', 'really', 'so', 'incredibly', 'absolutely'];
+  const lowerText = text.toLowerCase();
+  const baseIntensity = 3;
+  const intensityBoost = intensityWords.filter(word => lowerText.includes(word)).length;
+  return Math.min(5, baseIntensity + intensityBoost);
+};
+
+const getMoodEmoji = (mood: string): string => {
+  const emojis = {
+    happy: '😊',
+    sad: '😢',
+    anxious: '😰',
+    angry: '😠',
+    calm: '😌',
+    neutral: '😐'
+  };
+  return emojis[mood as keyof typeof emojis] || emojis.neutral;
+};
+
+const getMoodColor = (mood: string): string => {
+  const colors = {
+    happy: 'bg-yellow-200 border-yellow-400',
+    sad: 'bg-blue-200 border-blue-400',
+    anxious: 'bg-orange-200 border-orange-400',
+    angry: 'bg-red-200 border-red-400',
+    calm: 'bg-green-200 border-green-400',
+    neutral: 'bg-gray-200 border-gray-400'
+  };
+  return colors[mood as keyof typeof colors] || colors.neutral;
+};
+
 export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
   const moodData = useMemo(() => {
     const userMessages = messages.filter(m => m.role === 'user');
@@ -69,61 +124,6 @@ export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(-7); // Last 7 days
   }, [messages]);
-
-  const detectMood = (text: string): string => {
-    const moodKeywords = {
-      happy: ['happy', 'joy', 'excited', 'great', 'wonderful', 'amazing', 'love', 'fantastic'],
-      sad: ['sad', 'down', 'depressed', 'hurt', 'cry', 'tears', 'lonely', 'empty'],
-      anxious: ['anxious', 'worried', 'nervous', 'stress', 'panic', 'scared', 'fear'],
-      angry: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'rage', 'upset'],
-      calm: ['calm', 'peaceful', 'relaxed', 'serene', 'tranquil', 'zen', 'balanced']
-    };
-
-    const lowerText = text.toLowerCase();
-    const moodScores: Record<string, number> = {};
-
-    Object.entries(moodKeywords).forEach(([mood, keywords]) => {
-      moodScores[mood] = keywords.filter(keyword => lowerText.includes(keyword)).length;
-    });
-
-    const dominantMood = Object.entries(moodScores).reduce((a, b) => 
-      moodScores[a[0]] > moodScores[b[0]] ? a : b
-    );
-
-    return dominantMood[1] > 0 ? dominantMood[0] : 'neutral';
-  };
-
-  const calculateIntensity = (text: string): number => {
-    const intensityWords = ['very', 'extremely', 'really', 'so', 'incredibly', 'absolutely'];
-    const lowerText = text.toLowerCase();
-    const baseIntensity = 3;
-    const intensityBoost = intensityWords.filter(word => lowerText.includes(word)).length;
-    return Math.min(5, baseIntensity + intensityBoost);
-  };
-
-  const getMoodEmoji = (mood: string): string => {
-    const emojis = {
-      happy: '😊',
-      sad: '😢',
-      anxious: '😰',
-      angry: '😠',
-      calm: '😌',
-      neutral: '😐'
-    };
-    return emojis[mood as keyof typeof emojis] || emojis.neutral;
-  };
-
-  const getMoodColor = (mood: string): string => {
-    const colors = {
-      happy: 'bg-yellow-200 border-yellow-400',
-      sad: 'bg-blue-200 border-blue-400',
-      anxious: 'bg-orange-200 border-orange-400',
-      angry: 'bg-red-200 border-red-400',
-      calm: 'bg-green-200 border-green-400',
-      neutral: 'bg-gray-200 border-gray-400'
-    };
-    return colors[mood as keyof typeof colors] || colors.neutral;
-  };
 
   if (moodData.length === 0) {
     return (
