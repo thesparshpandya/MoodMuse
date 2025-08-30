@@ -1,31 +1,248 @@
-import React from 'react';
-import { Bot } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Loader2, User, Bot } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CopyButton } from '@/components/ui/copy-button';
+import { TypingIndicator } from './TypingIndicator';
 import { cn } from '@/lib/utils';
+import { MoodTagger } from './MoodTagger';
+import { MoodPreSelector } from './MoodPreSelector';
 
-interface TypingIndicatorProps {
-  className?: string;
-  message?: string;
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  detectedMood?: string;
+  intensity?: number;
 }
 
-export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
-  className,
-  message = "AI is thinking..."
-}) => {
+interface ChatInterfaceProps {
+  messages: ChatMessage[];
+  onSendMessage: (content: string) => void;
+  isLoading: boolean;
+  onPromptInsert?: (prompt: string) => void;
+}
+
+export const ChatInterface = React.memo(React.forwardRef<HTMLTextAreaElement, ChatInterfaceProps>(({
+  messages,
+  onSendMessage,
+  isLoading,
+  onPromptInsert
+}, ref) => {
+  const [input, setInput] = useState('');
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedMoodEmoji, setSelectedMoodEmoji] = useState<string>('');
+  const [isTyping, setIsTyping] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Enhanced auto-scroll with smooth behavior
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && !isLoading) {
+      // Show typing indicator
+      setIsTyping(true);
+      
+      const messageContent = selectedMood 
+        ? `Mood: ${selectedMoodEmoji} ${selectedMood}\n\n${input.trim()}`
+        : input.trim();
+      
+      onSendMessage(messageContent);
+      setInput('');
+      setSelectedMood(null);
+      setSelectedMoodEmoji('');
+      
+      // Hide typing indicator after a delay
+      setTimeout(() => setIsTyping(false), 1000);
+    }
+  };
+
+  const handlePromptInsert = (prompt: string) => {
+    setInput(prev => prev ? `${prev}\n\n${prompt}` : prompt);
+    onPromptInsert?.(prompt);
+  };
+
+  const handleMoodSelect = (mood: string, emoji: string) => {
+    setSelectedMood(mood);
+    setSelectedMoodEmoji(emoji);
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Enhanced markdown formatting for AI responses
+  const formatMarkdown = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/_(.*?)_/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs">$1</code>')
+      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-primary/30 pl-4 my-2 text-muted-foreground italic">$1</blockquote>')
+      .replace(/\n/g, '<br/>');
+  };
+
   return (
-    <div className={cn("flex gap-3 max-w-[85%] mr-auto fade-in", className)}>
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary text-secondary-foreground">
-        <Bot className="h-4 w-4" />
+    <div className="bg-card border border-border rounded-2xl shadow-purple overflow-hidden w-full max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="bg-gradient-purple px-4 sm:px-6 py-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-primary-foreground">Your Safe Space</h2>
+        <p className="text-primary-foreground/80 text-xs sm:text-sm">Express yourself freely - I'm here to listen and understand</p>
       </div>
-      <div className="rounded-2xl px-4 py-3 bg-secondary text-secondary-foreground">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+
+      {/* Messages */}
+      <ScrollArea className="h-80 sm:h-96 p-4 sm:p-6" ref={scrollAreaRef}>
+        {messages.length === 0 ? (
+          <div className="text-center py-8 sm:py-12">
+            <Bot className="h-12 sm:h-16 w-12 sm:w-16 text-primary mx-auto mb-4 opacity-60" />
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Start Your Conversation</h3>
+            <p className="text-muted-foreground text-xs sm:text-sm px-4">
+              Share what's on your mind. I'm here to listen and understand.
+            </p>
           </div>
-          <span className="text-xs text-muted-foreground ml-1">{message}</span>
+        ) : (
+          <div className="space-y-3 sm:space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex gap-2 sm:gap-3 max-w-[90%] sm:max-w-[85%] fade-in",
+                  message.role === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
+                )}
+              >
+                <div className={cn(
+                  "w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                  message.role === 'user' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary text-secondary-foreground"
+                )}>
+                  {message.role === 'user' ? (
+                    <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                  ) : (
+                    <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                </div>
+                <div className={cn(
+                  "rounded-2xl px-3 py-2 sm:px-4 sm:py-3 relative group",
+                  message.role === 'user'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
+                )}>
+                  <div 
+                    className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: message.role === 'assistant' 
+                        ? formatMarkdown(message.content)
+                        : message.content
+                    }}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <p className={cn(
+                      "text-xs opacity-70",
+                      message.role === 'user' ? "text-primary-foreground" : "text-muted-foreground"
+                    )}>
+                      {formatTime(message.timestamp)}
+                    </p>
+                    
+                    {/* Copy button for AI responses */}
+                    {message.role === 'assistant' && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <CopyButton 
+                          text={message.content}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Mood Tagger for AI responses */}
+                  {message.role === 'assistant' && (
+                    <MoodTagger message={message.content} />
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {/* Enhanced Typing Indicator */}
+            {(isLoading || isTyping) && (
+              <TypingIndicator message={isLoading ? "AI is thinking..." : "Processing your message..."} />
+            )}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6 border-t border-border bg-muted/20 space-y-3 sm:space-y-4">
+        {/* Mood Pre-selector */}
+        <MoodPreSelector 
+          selectedMood={selectedMood}
+          onMoodSelect={handleMoodSelect}
+        />
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 space-y-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Share your thoughts, feelings, or anything on your mind..."
+              className="min-h-[60px] sm:min-h-[80px] resize-none border-border bg-background rounded-2xl text-sm sm:text-base"
+              disabled={isLoading}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+            />
+            {selectedMood && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Mood: {selectedMoodEmoji} {selectedMood}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMood(null);
+                    setSelectedMoodEmoji('');
+                  }}
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                >
+                  ×
+                </Button>
+              </div>
+            )}
+          </div>
+          <Button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="self-end sm:self-end bg-gradient-purple hover:opacity-90 transition-all duration-200 rounded-2xl h-10 sm:h-auto"
+            size="sm"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
-};
+}));
+
+ChatInterface.displayName = 'ChatInterface';
