@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search, Keyboard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useKeyboardShortcuts, createCommonShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { ChatInterface } from './ChatInterface';
 import { MoodAnalysis } from './MoodAnalysis';
 import { ApiKeySetup } from './ApiKeySetup';
@@ -10,7 +12,7 @@ import { ReflectionPrompts } from './ReflectionPrompts';
 import { ThemeSettings } from './ThemeSettings';
 import { ReflectionTimeline } from './ReflectionTimeline';
 import { OnboardingFlow } from './OnboardingFlow';
-import { ThemeProvider } from './ThemeProvider';
+import { ThemeProvider, useTheme } from './ThemeProvider';
 import { MoodChart } from './MoodChart';
 import { SearchInterface } from './SearchInterface';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,20 +36,50 @@ interface OnboardingData {
   journalingFrequency: 'daily' | 'weekly' | 'custom';
 }
 
-export const MoodMuse: React.FC = () => {
+export const MoodMuse: React.FC = React.memo(() => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [userPreferences, setUserPreferences] = useState<OnboardingData | null>(null);
   const [activeTab, setActiveTab] = useState('journal');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
-  // Check if user has journaled today for streak tracking (optimized to only check date)
+  // Optimized hasEntryToday check
   const hasEntryToday = useMemo(() => {
+    if (messages.length === 0) return false;
     const today = new Date().toDateString();
     return messages.some(m => m.role === 'user' && m.timestamp.toDateString() === today);
-  }, [messages.length, new Date().toDateString()]);
+  }, [messages]);
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => createCommonShortcuts({
+    onNewEntry: () => {
+      setActiveTab('journal');
+      setTimeout(() => chatInputRef.current?.focus(), 100);
+    },
+    onSearch: () => setActiveTab('search'),
+    onToggleInsights: () => setActiveTab('insights'),
+    onFocusInput: () => chatInputRef.current?.focus(),
+    onExport: () => {
+      const dataStr = JSON.stringify(messages, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `moodmuse-export-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Data Exported",
+        description: "Your journal data has been exported successfully."
+      });
+    }
+  }), [messages, toast]);
+
+  useKeyboardShortcuts(shortcuts);
 
   useEffect(() => {
     // Load API key from localStorage
@@ -80,7 +112,7 @@ export const MoodMuse: React.FC = () => {
     }
   }, []);
 
-  const validateApiKey = async (key: string): Promise<boolean> => {
+  const validateApiKey = useCallback(async (key: string): Promise<boolean> => {
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
         method: 'POST',
@@ -98,9 +130,9 @@ export const MoodMuse: React.FC = () => {
       console.error('API key validation error:', error);
       return false;
     }
-  };
+  }, []);
 
-  const saveApiKey = async (key: string) => {
+  const saveApiKey = useCallback(async (key: string) => {
     const isValid = await validateApiKey(key);
     
     if (!isValid) {
@@ -118,7 +150,7 @@ export const MoodMuse: React.FC = () => {
       title: "API Key Saved",
       description: "Your Google Gemini API key has been validated and saved.",
     });
-  };
+  }, [validateApiKey, toast]);
 
   const saveMessages = useCallback((newMessages: ChatMessage[]) => {
     setMessages(newMessages);
@@ -127,7 +159,7 @@ export const MoodMuse: React.FC = () => {
     localStorage.setItem('moodmuse_messages', JSON.stringify(limitedMessages));
   }, []);
 
-  const generateResponse = async (conversation: any[]): Promise<string> => {
+  const generateResponse = useCallback(async (conversation: any[]): Promise<string> => {
     console.log(`Using Gemini model: ${GEMINI_MODEL}`);
     
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
@@ -160,7 +192,7 @@ export const MoodMuse: React.FC = () => {
     console.log(`Gemini response:`, data);
     
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm here for you. Thank you for sharing with me.";
-  };
+  }, [apiKey]);
 
   const sendMessage = useCallback(async (content: string) => {
     if (!apiKey) {
@@ -225,8 +257,7 @@ export const MoodMuse: React.FC = () => {
     }
   }, [apiKey, messages, saveMessages, toast]);
 
-  // Generate emotional insights
-  const generateEmotionalInsight = async (recentMessages: ChatMessage[]): Promise<string> => {
+  const generateEmotionalInsight = useCallback(async (recentMessages: ChatMessage[]): Promise<string> => {
     const conversation = [
       {
         role: "user",
@@ -239,7 +270,7 @@ export const MoodMuse: React.FC = () => {
     ];
 
     return await generateResponse(conversation);
-  };
+  }, [generateResponse]);
 
   const handleOnboardingComplete = useCallback((data: OnboardingData) => {
     setUserPreferences(data);
@@ -302,6 +333,19 @@ export const MoodMuse: React.FC = () => {
                     <ThemeSettings />
                   </DialogContent>
                 </Dialog>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-primary-foreground/80 hover:text-primary-foreground">
+                      <Keyboard className="h-4 w-4 mr-2" />
+                      Shortcuts
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <KeyboardShortcutsHelp shortcuts={shortcuts} />
+                  </DialogContent>
+                </Dialog>
+                
                 {userPreferences?.name && (
                   <span className="text-primary-foreground/90 text-sm">
                     Welcome back, {userPreferences.name}!
@@ -348,6 +392,7 @@ export const MoodMuse: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                   <ReflectionPrompts onPromptSelect={handlePromptInsert} />
                   <ChatInterface
+                    ref={chatInputRef}
                     messages={messages}
                     onSendMessage={sendMessage}
                     isLoading={isLoading}
@@ -415,4 +460,6 @@ export const MoodMuse: React.FC = () => {
       </div>
     </ThemeProvider>
   );
-};
+});
+
+MoodMuse.displayName = 'MoodMuse';
