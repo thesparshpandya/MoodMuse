@@ -1,6 +1,15 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  detectMood, 
+  calculateIntensity, 
+  getMoodEmoji, 
+  getMoodColor, 
+  groupMessagesByDate,
+  type MoodType 
+} from '@/lib/mood-utils';
+import { ChartSkeleton } from '@/components/LoadingStates';
 
 interface ChatMessage {
   id: string;
@@ -23,80 +32,10 @@ interface MoodDataPoint {
   emoji: string;
 }
 
-const detectMood = (text: string): string => {
-  const moodKeywords = {
-    happy: ['happy', 'joy', 'excited', 'great', 'wonderful', 'amazing', 'love', 'fantastic'],
-    sad: ['sad', 'down', 'depressed', 'hurt', 'cry', 'tears', 'lonely', 'empty'],
-    anxious: ['anxious', 'worried', 'nervous', 'stress', 'panic', 'scared', 'fear'],
-    angry: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'rage', 'upset'],
-    calm: ['calm', 'peaceful', 'relaxed', 'serene', 'tranquil', 'zen', 'balanced']
-  };
 
-  const lowerText = text.toLowerCase();
-  const moodScores: Record<string, number> = {};
-
-  Object.entries(moodKeywords).forEach(([mood, keywords]) => {
-    moodScores[mood] = keywords.filter(keyword => lowerText.includes(keyword)).length;
-  });
-
-  const dominantMood = Object.entries(moodScores).reduce((a, b) => 
-    moodScores[a[0]] > moodScores[b[0]] ? a : b
-  );
-
-  return dominantMood[1] > 0 ? dominantMood[0] : 'neutral';
-};
-
-const calculateIntensity = (text: string): number => {
-  const intensityWords = ['very', 'extremely', 'really', 'so', 'incredibly', 'absolutely'];
-  const lowerText = text.toLowerCase();
-  const baseIntensity = 3;
-  const intensityBoost = intensityWords.filter(word => lowerText.includes(word)).length;
-  return Math.min(5, baseIntensity + intensityBoost);
-};
-
-const getMoodEmoji = (mood: string): string => {
-  const emojis = {
-    happy: '😊',
-    sad: '😢',
-    anxious: '😰',
-    angry: '😠',
-    calm: '😌',
-    neutral: '😐'
-  };
-  return emojis[mood as keyof typeof emojis] || emojis.neutral;
-};
-
-const getMoodColor = (mood: string): string => {
-  const colors = {
-    happy: 'bg-yellow-200 border-yellow-400',
-    sad: 'bg-blue-200 border-blue-400',
-    anxious: 'bg-orange-200 border-orange-400',
-    angry: 'bg-red-200 border-red-400',
-    calm: 'bg-green-200 border-green-400',
-    neutral: 'bg-gray-200 border-gray-400'
-  };
-  return colors[mood as keyof typeof colors] || colors.neutral;
-};
-
-export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
+export const MoodChart: React.FC<MoodChartProps> = React.memo(({ messages }) => {
   const moodData = useMemo(() => {
-    const userMessages = messages.filter(m => m.role === 'user');
-    
-    // Group messages by date and detect mood
-    const dailyMoods: Record<string, { moods: string[], intensities: number[] }> = {};
-    
-    userMessages.forEach(message => {
-      const dateKey = message.timestamp.toLocaleDateString();
-      const mood = detectMood(message.content);
-      const intensity = calculateIntensity(message.content);
-      
-      if (!dailyMoods[dateKey]) {
-        dailyMoods[dateKey] = { moods: [], intensities: [] };
-      }
-      
-      dailyMoods[dateKey].moods.push(mood);
-      dailyMoods[dateKey].intensities.push(intensity);
-    });
+    const dailyMoods = groupMessagesByDate(messages);
     
     // Convert to chart data points
     return Object.entries(dailyMoods)
@@ -124,6 +63,10 @@ export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(-7); // Last 7 days
   }, [messages]);
+
+  if (messages.length === 0) {
+    return <ChartSkeleton />;
+  }
 
   if (moodData.length === 0) {
     return (
@@ -165,9 +108,11 @@ export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
                     className="flex flex-col items-center gap-2 min-w-0 flex-1"
                   >
                     <div
-                      className={`w-8 rounded-t-lg transition-all duration-300 hover:opacity-80 ${getMoodColor(point.mood)}`}
+                      className={`w-8 rounded-t-lg transition-all duration-300 hover:opacity-80 border-2 ${getMoodColor(point.mood)}`}
                       style={{ height: `${height}%` }}
                       title={`${point.mood} - Intensity ${point.intensity}/5`}
+                      role="img"
+                      aria-label={`${point.mood} mood with intensity ${point.intensity} out of 5`}
                     />
                     <div className="text-center">
                       <div className="text-lg mb-1">{point.emoji}</div>
@@ -238,4 +183,4 @@ export const MoodChart: React.FC<MoodChartProps> = ({ messages }) => {
       </CardContent>
     </Card>
   );
-};
+});
