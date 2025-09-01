@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MoodSelector } from './MoodSelector';
-import { JournalEntry } from './JournalEntry';
+import { RichTextEditor } from './RichTextEditor';
 import { ReflectionCard } from './ReflectionCard';
 import { ApiKeySetup } from './ApiKeySetup';
+import { ExportImportControls } from './ExportImportControls';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import { BookOpen, Sparkles } from 'lucide-react';
 
 interface JournalReflection {
@@ -21,6 +23,13 @@ export const JournalingApp: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
   const { toast } = useToast();
+
+  // Auto-save draft functionality
+  const { loadDraft, clearDraft } = useAutoSave({
+    key: 'journal_entry',
+    data: { entry, selectedMood },
+    enabled: !!(entry || selectedMood)
+  });
 
   useEffect(() => {
     // Load API key from localStorage
@@ -42,6 +51,21 @@ export const JournalingApp: React.FC = () => {
         console.error('Error loading reflections:', error);
       }
     }
+
+    // Load draft
+    const draft = loadDraft();
+    if (draft && !entry && !selectedMood) {
+      if (draft.entry) setEntry(draft.entry);
+      if (draft.selectedMood) setSelectedMood(draft.selectedMood);
+      
+      if (draft.entry || draft.selectedMood) {
+        toast({
+          title: "Draft restored",
+          description: "Your previous draft has been restored.",
+          duration: 3000,
+        });
+      }
+    }
   }, []);
 
   const saveApiKey = (key: string) => {
@@ -57,6 +81,20 @@ export const JournalingApp: React.FC = () => {
     const updatedReflections = [reflection, ...reflections];
     setReflections(updatedReflections);
     localStorage.setItem('journal_reflections', JSON.stringify(updatedReflections));
+  };
+
+  const handleImport = (importedReflections: JournalReflection[]) => {
+    // Merge with existing reflections, avoiding duplicates
+    const existingIds = new Set(reflections.map(r => r.id));
+    const newReflections = importedReflections.filter(r => !existingIds.has(r.id));
+    
+    if (newReflections.length > 0) {
+      const mergedReflections = [...newReflections, ...reflections]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      setReflections(mergedReflections);
+      localStorage.setItem('journal_reflections', JSON.stringify(mergedReflections));
+    }
   };
 
   const generateReflection = async () => {
@@ -117,9 +155,10 @@ export const JournalingApp: React.FC = () => {
 
       saveReflection(newReflection);
       
-      // Clear form
+      // Clear form and draft
       setEntry('');
       setSelectedMood(null);
+      clearDraft();
 
       toast({
         title: "Reflection Generated",
@@ -157,13 +196,19 @@ export const JournalingApp: React.FC = () => {
         {/* API Key Setup */}
         <ApiKeySetup onApiKeySet={saveApiKey} hasApiKey={!!apiKey} />
 
+        {/* Export/Import Controls */}
+        <ExportImportControls 
+          reflections={reflections}
+          onImport={handleImport}
+        />
+
         {/* Journal Input Section */}
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
             <MoodSelector selectedMood={selectedMood} onMoodSelect={setSelectedMood} />
-            <JournalEntry
-              entry={entry}
-              onEntryChange={setEntry}
+            <RichTextEditor
+              value={entry}
+              onChange={setEntry}
               onSubmit={generateReflection}
               isLoading={isLoading}
               selectedMood={selectedMood}
