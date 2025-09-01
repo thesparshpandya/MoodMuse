@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search, Keyboard } from 'lucide-react';
+import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search, Keyboard, BarChart3, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useKeyboardShortcuts, createCommonShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
@@ -15,6 +15,10 @@ import { OnboardingFlow } from './OnboardingFlow';
 import { ThemeProvider, useTheme } from './ThemeProvider';
 import { MoodChart } from './MoodChart';
 import { SearchInterface } from './SearchInterface';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
+import { WellnessRecommendations } from './WellnessRecommendations';
+import { MoodCalendar } from './MoodCalendar';
+import { useOffline } from '@/hooks/useOffline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,9 +47,10 @@ export const MoodMuse: React.FC = React.memo(() => {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [userPreferences, setUserPreferences] = useState<OnboardingData | null>(null);
   const [activeTab, setActiveTab] = useState('journal');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+  const { isOnline, wasOffline } = useOffline();
 
   // Optimized hasEntryToday check
   const hasEntryToday = useMemo(() => {
@@ -82,10 +87,18 @@ export const MoodMuse: React.FC = React.memo(() => {
   useKeyboardShortcuts(shortcuts);
 
   useEffect(() => {
-    // Load API key from localStorage
+    // Load saved data
     const savedApiKey = localStorage.getItem('gemini_api_key');
     if (savedApiKey) {
       setApiKey(savedApiKey);
+    }
+
+    // Show offline status notification
+    if (wasOffline && isOnline) {
+      toast({
+        title: "Back Online",
+        description: "Your connection has been restored.",
+      });
     }
 
     // Load onboarding status and preferences
@@ -363,7 +376,7 @@ export const MoodMuse: React.FC = React.memo(() => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="journal" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">Journal</span>
@@ -383,6 +396,16 @@ export const MoodMuse: React.FC = React.memo(() => {
                 <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">Insights</span>
                 <span className="xs:hidden">Trends</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Analytics</span>
+                <span className="xs:hidden">Stats</span>
+              </TabsTrigger>
+              <TabsTrigger value="wellness" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Heart className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Wellness</span>
+                <span className="xs:hidden">Care</span>
               </TabsTrigger>
             </TabsList>
 
@@ -455,7 +478,22 @@ export const MoodMuse: React.FC = React.memo(() => {
                 <MoodAnalysis messages={messages} />
               </div>
             </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-6">
+              <AnalyticsDashboard messages={messages} />
+              <MoodCalendar messages={messages} />
+            </TabsContent>
+
+            <TabsContent value="wellness" className="space-y-6">
+              <WellnessRecommendations messages={messages} />
+            </TabsContent>
           </Tabs>
+
+          {!isOnline && (
+            <div className="fixed bottom-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg">
+              Offline mode - changes will sync when connection returns
+            </div>
+          )}
         </div>
       </div>
     </ThemeProvider>
