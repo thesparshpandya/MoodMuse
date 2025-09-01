@@ -1,0 +1,73 @@
+import { useEffect, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
+
+interface AutoSaveOptions {
+  key: string;
+  data: any;
+  delay?: number;
+  enabled?: boolean;
+}
+
+export const useAutoSave = ({ key, data, delay = 2000, enabled = true }: AutoSaveOptions) => {
+  const { toast } = useToast();
+  const timeoutRef = useRef<NodeJS.Timeout>();
+  const lastSavedRef = useRef<string>('');
+
+  useEffect(() => {
+    if (!enabled || !key) return;
+
+    const currentData = JSON.stringify(data);
+    
+    // Skip if data hasn't changed
+    if (currentData === lastSavedRef.current) return;
+
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout for auto-save
+    timeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(`draft_${key}`, currentData);
+        lastSavedRef.current = currentData;
+        
+        // Show subtle toast notification
+        toast({
+          title: "Draft saved",
+          description: "Your changes have been automatically saved.",
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [data, key, delay, enabled, toast]);
+
+  const loadDraft = (): any => {
+    try {
+      const saved = localStorage.getItem(`draft_${key}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error('Failed to load draft:', error);
+      return null;
+    }
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(`draft_${key}`);
+      lastSavedRef.current = '';
+    } catch (error) {
+      console.error('Failed to clear draft:', error);
+    }
+  };
+
+  return { loadDraft, clearDraft };
+};
