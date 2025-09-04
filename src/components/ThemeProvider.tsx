@@ -14,22 +14,25 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const COLOR_THEMES = {
   lavender: {
-    '--theme-primary': '276 40% 70%',
-    '--theme-secondary': '285 30% 85%',
-    '--theme-accent': '290 35% 75%',
-    '--theme-gradient': 'linear-gradient(135deg, hsl(276 40% 70%), hsl(285 30% 85%))',
+    '--primary': '276 60% 55%',
+    '--secondary': '285 50% 70%',
+    '--accent': '290 55% 60%',
+    '--gradient-purple': 'linear-gradient(135deg, hsl(276 60% 55%), hsl(285 50% 70%))',
+    '--ring': '276 60% 55%',
   },
   coral: {
-    '--theme-primary': '9 100% 64%',
-    '--theme-secondary': '25 100% 91%',
-    '--theme-accent': '15 100% 82%',
-    '--theme-gradient': 'linear-gradient(135deg, hsl(9 100% 64%), hsl(25 100% 91%))',
+    '--primary': '9 100% 64%',
+    '--secondary': '25 100% 91%',
+    '--accent': '15 100% 82%',
+    '--gradient-purple': 'linear-gradient(135deg, hsl(9 100% 64%), hsl(25 100% 91%))',
+    '--ring': '9 100% 64%',
   },
   twilight: {
-    '--theme-primary': '215 32% 27%',
-    '--theme-secondary': '215 25% 40%',
-    '--theme-accent': '215 30% 60%',
-    '--theme-gradient': 'linear-gradient(135deg, hsl(215 32% 27%), hsl(215 25% 40%))',
+    '--primary': '215 32% 27%',
+    '--secondary': '215 25% 40%',
+    '--accent': '215 30% 60%',
+    '--gradient-purple': 'linear-gradient(135deg, hsl(215 32% 27%), hsl(215 25% 40%))',
+    '--ring': '215 32% 27%',
   },
 };
 
