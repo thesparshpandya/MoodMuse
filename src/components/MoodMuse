@@ -18,6 +18,10 @@ import { SearchInterface } from './SearchInterface';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { WellnessRecommendations } from './WellnessRecommendations';
 import { MoodCalendar } from './MoodCalendar';
+import { MoodPatterns } from './MoodPatterns';
+import { MoodTagger } from './MoodTagger';
+import { MoodPreSelector } from './MoodPreSelector';
+import { TypingIndicator } from './TypingIndicator';
 import { useOffline } from '@/hooks/useOffline';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
@@ -47,6 +51,9 @@ export const MoodMuse: React.FC = React.memo(() => {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [userPreferences, setUserPreferences] = useState<OnboardingData | null>(null);
   const [activeTab, setActiveTab] = useState('journal');
+  const [selectedMoodTags, setSelectedMoodTags] = useState<string[]>([]);
+  const [currentMood, setCurrentMood] = useState<string | null>(null);
+  const [moodIntensity, setMoodIntensity] = useState<number>(3);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -321,18 +328,41 @@ export const MoodMuse: React.FC = React.memo(() => {
               </div>
             </div>
             <div className="hidden md:flex items-center gap-6 text-primary-foreground/80">
-              <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setActiveTab('journal');
+                  // Scroll to mood selector after a short delay to ensure tab is loaded
+                  setTimeout(() => {
+                    const moodSelector = document.querySelector('[data-section="mood-selector"]');
+                    moodSelector?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+                className="flex items-center gap-2 hover:text-primary-foreground transition-colors cursor-pointer"
+              >
                 <Sparkles className="h-5 w-5" />
                 <span>Mood Detection</span>
-              </div>
-              <div className="flex items-center gap-2">
+              </button>
+              <button 
+                onClick={() => setActiveTab('insights')}
+                className="flex items-center gap-2 hover:text-primary-foreground transition-colors cursor-pointer"
+              >
                 <TrendingUp className="h-5 w-5" />
                 <span>Emotional Insights</span>
-              </div>
-              <div className="flex items-center gap-2">
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveTab('journal');
+                  // Scroll to text editor after a short delay to ensure tab is loaded
+                  setTimeout(() => {
+                    const textEditor = document.querySelector('[data-section="text-editor"]');
+                    textEditor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+                className="flex items-center gap-2 hover:text-primary-foreground transition-colors cursor-pointer"
+              >
                 <MessageCircle className="h-5 w-5" />
                 <span>Empathetic AI</span>
-              </div>
+              </button>
             </div>
               <div className="flex items-center gap-4">
                 <Dialog>
@@ -414,17 +444,39 @@ export const MoodMuse: React.FC = React.memo(() => {
                 {/* Chat Interface */}
                 <div className="lg:col-span-2 space-y-6">
                   <ReflectionPrompts onPromptSelect={handlePromptInsert} />
-                  <ChatInterface
-                    ref={chatInputRef}
-                    messages={messages}
-                    onSendMessage={sendMessage}
-                    isLoading={isLoading}
-                    onPromptInsert={handlePromptInsert}
-                  />
+                  {isLoading ? (
+                    <TypingIndicator />
+                  ) : (
+                    <ChatInterface
+                      ref={chatInputRef}
+                      messages={messages}
+                      onSendMessage={sendMessage}
+                      isLoading={isLoading}
+                      onPromptInsert={handlePromptInsert}
+                    />
+                  )}
                 </div>
 
-                {/* Enhanced Sidebar */}
+                 {/* Enhanced Sidebar */}
                 <div className="space-y-6">
+                  {/* Mood Pre-selector */}
+                  <MoodPreSelector 
+                    selectedMood={currentMood}
+                    onMoodSelect={(mood, intensity) => {
+                      setCurrentMood(mood);
+                      setMoodIntensity(intensity);
+                    }}
+                  />
+                  
+                  {/* Mood Tagger */}
+                  {currentMood && (
+                    <MoodTagger 
+                      selectedTags={selectedMoodTags}
+                      onTagsChange={setSelectedMoodTags}
+                      currentMood={currentMood}
+                    />
+                  )}
+                  
                   {/* Streak Tracker */}
                   <StreakTracker hasEntryToday={hasEntryToday} />
                   
@@ -475,7 +527,10 @@ export const MoodMuse: React.FC = React.memo(() => {
                     onGenerateInsight={generateEmotionalInsight}
                   />
                 </div>
-                <MoodAnalysis messages={messages} />
+                <div className="space-y-6">
+                  <MoodAnalysis messages={messages} />
+                  <MoodPatterns messages={messages} />
+                </div>
               </div>
             </TabsContent>
 
