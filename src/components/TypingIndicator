@@ -1,30 +1,22 @@
 import React from 'react';
-import { Bot } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Brain } from 'lucide-react';
 
 interface TypingIndicatorProps {
   className?: string;
-  message?: string;
 }
 
-export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
-  className,
-  message = "AI is thinking..."
-}) => {
+export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ className = '' }) => {
   return (
-    <div className={cn("flex gap-3 max-w-[85%] mr-auto fade-in", className)}>
-      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary text-secondary-foreground">
-        <Bot className="h-4 w-4" />
+    <div className={`flex items-center gap-3 p-4 bg-muted/30 rounded-lg border border-border ${className}`}>
+      <div className="flex items-center gap-2">
+        <Brain className="h-4 w-4 text-primary animate-pulse" />
+        <span className="text-sm text-muted-foreground">MoodMuse is thinking</span>
       </div>
-      <div className="rounded-2xl px-4 py-3 bg-secondary text-secondary-foreground">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-          </div>
-          <span className="text-xs text-muted-foreground ml-1">{message}</span>
-        </div>
+      
+      <div className="flex gap-1">
+        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
       </div>
     </div>
   );
