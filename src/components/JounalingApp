@@ -205,14 +205,18 @@ export const JournalingApp: React.FC = () => {
         {/* Journal Input Section */}
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
-            <MoodSelector selectedMood={selectedMood} onMoodSelect={setSelectedMood} />
-            <RichTextEditor
-              value={entry}
-              onChange={setEntry}
-              onSubmit={generateReflection}
-              isLoading={isLoading}
-              selectedMood={selectedMood}
-            />
+            <div data-section="mood-selector">
+              <MoodSelector selectedMood={selectedMood} onMoodSelect={setSelectedMood} />
+            </div>
+            <div data-section="text-editor">
+              <RichTextEditor
+                value={entry}
+                onChange={setEntry}
+                onSubmit={generateReflection}
+                isLoading={isLoading}
+                selectedMood={selectedMood}
+              />
+            </div>
           </div>
 
           {/* Recent Reflection */}
