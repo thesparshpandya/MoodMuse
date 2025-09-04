@@ -75,9 +75,8 @@ export const ChatInterface = React.memo(React.forwardRef<HTMLTextAreaElement, Ch
     onPromptInsert?.(prompt);
   };
 
-  const handleMoodSelect = (mood: string, emoji: string) => {
+  const handleMoodSelect = (mood: string, intensity: number) => {
     setSelectedMood(mood);
-    setSelectedMoodEmoji(emoji);
   };
 
   const formatTime = (date: Date) => {
@@ -170,9 +169,11 @@ export const ChatInterface = React.memo(React.forwardRef<HTMLTextAreaElement, Ch
                     )}
                   </div>
                   
-                  {/* Mood Tagger for AI responses */}
+                  {/* Mood Analysis for AI responses */}
                   {message.role === 'assistant' && (
-                    <MoodTagger message={message.content} />
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      AI Response
+                    </div>
                   )}
                 </div>
               </div>
@@ -180,7 +181,7 @@ export const ChatInterface = React.memo(React.forwardRef<HTMLTextAreaElement, Ch
             
             {/* Enhanced Typing Indicator */}
             {(isLoading || isTyping) && (
-              <TypingIndicator message={isLoading ? "AI is thinking..." : "Processing your message..."} />
+              <TypingIndicator />
             )}
           </div>
         )}
