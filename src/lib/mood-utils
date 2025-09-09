@@ -31,12 +31,12 @@ export const MOOD_COLORS: Record<MoodType, string> = {
 };
 
 export const MOOD_BG_COLORS: Record<MoodType, string> = {
-  happy: 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-  sad: 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-  anxious: 'bg-orange-100 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',
-  angry: 'bg-red-100 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-  calm: 'bg-green-100 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-  neutral: 'bg-muted border-border'
+  happy: 'bg-amber-100 dark:bg-amber-900/20 border-amber-300/50 dark:border-amber-700/50 text-amber-900 dark:text-amber-100',
+  sad: 'bg-blue-100 dark:bg-blue-900/20 border-blue-300/50 dark:border-blue-700/50 text-blue-900 dark:text-blue-100',
+  anxious: 'bg-orange-100 dark:bg-orange-900/20 border-orange-300/50 dark:border-orange-700/50 text-orange-900 dark:text-orange-100',
+  angry: 'bg-red-100 dark:bg-red-900/20 border-red-300/50 dark:border-red-700/50 text-red-900 dark:text-red-100',
+  calm: 'bg-emerald-100 dark:bg-emerald-900/20 border-emerald-300/50 dark:border-emerald-700/50 text-emerald-900 dark:text-emerald-100',
+  neutral: 'bg-muted/50 border-border/50 text-muted-foreground'
 };
 
 /**
@@ -114,7 +114,7 @@ export const groupMessagesByDate = (messages: Array<{
   const dailyMoods: Record<string, { moods: string[], intensities: number[] }> = {};
 
   userMessages.forEach(message => {
-    const dateKey = message.timestamp.toLocaleDateString();
+    const dateKey = message.timestamp.toDateString();
     const mood = detectMood(message.content);
     const intensity = calculateIntensity(message.content);
 
