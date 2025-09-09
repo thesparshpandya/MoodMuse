@@ -86,7 +86,7 @@ export const MoodAnalysis: React.FC<MoodAnalysisProps> = React.memo(({ messages 
               const latestMood = detectMood(recentMessages[recentMessages.length - 1].content);
               return (
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full ${getMoodColor(latestMood)} flex items-center justify-center text-white text-xl`}>
+                  <div className={`w-12 h-12 rounded-full ${getMoodColor(latestMood)} flex items-center justify-center text-foreground text-xl border border-border/50`}>
                     {getMoodEmoji(latestMood)}
                   </div>
                   <div>
