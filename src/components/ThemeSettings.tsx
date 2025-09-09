@@ -30,9 +30,9 @@ export const ThemeSettings: React.FC = () => {
   ];
 
   return (
-    <Card className="bg-card border-border">
+    <Card variant="glass" className="border-0">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
+        <CardTitle className="flex items-center gap-2 glass-text-strong">
           <Palette className="h-5 w-5" />
           Theme Settings
         </CardTitle>
@@ -40,10 +40,10 @@ export const ThemeSettings: React.FC = () => {
       <CardContent className="space-y-6">
         {/* Dark/Light Mode Toggle */}
         <div>
-          <h4 className="text-sm font-medium text-foreground mb-3">Mode</h4>
+          <h4 className="text-sm font-medium glass-text-strong mb-3">Mode</h4>
           <div className="flex gap-2">
             <Button
-              variant={theme === 'light' ? 'default' : 'outline'}
+              variant={theme === 'light' ? 'default' : 'glass-subtle'}
               size="sm"
               onClick={() => setTheme('light')}
               className="flex items-center gap-2"
@@ -52,7 +52,7 @@ export const ThemeSettings: React.FC = () => {
               Light
             </Button>
             <Button
-              variant={theme === 'dark' ? 'default' : 'outline'}
+              variant={theme === 'dark' ? 'default' : 'glass-subtle'}
               size="sm"
               onClick={() => setTheme('dark')}
               className="flex items-center gap-2"
@@ -65,15 +65,16 @@ export const ThemeSettings: React.FC = () => {
 
         {/* Color Theme Selection */}
         <div>
-          <h4 className="text-sm font-medium text-foreground mb-3">Color Theme</h4>
+          <h4 className="text-sm font-medium glass-text-strong mb-3">Color Theme</h4>
           <div className="space-y-3">
             {colorThemes.map((themeOption) => (
               <Card
                 key={themeOption.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                variant={colorTheme === themeOption.id ? 'glass-strong' : 'glass-subtle'}
+                className={`cursor-pointer transition-all duration-200 glass-hover ${
                   colorTheme === themeOption.id 
-                    ? 'ring-2 ring-primary border-primary' 
-                    : 'border-border hover:border-primary/50'
+                    ? 'ring-2 ring-primary/40 border-primary/30' 
+                    : 'hover:border-primary/30'
                 }`}
                 onClick={() => setColorTheme(themeOption.id)}
               >
@@ -81,19 +82,19 @@ export const ThemeSettings: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h5 className="font-medium text-foreground">{themeOption.name}</h5>
+                        <h5 className="font-medium glass-text-strong">{themeOption.name}</h5>
                         {colorTheme === themeOption.id && (
                           <Badge variant="default" className="text-xs">Active</Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-3">
+                      <p className="text-xs glass-text mb-3">
                         {themeOption.description}
                       </p>
                       <div className="flex gap-2">
                         {themeOption.colors.map((color, index) => (
                           <div
                             key={index}
-                            className="w-6 h-6 rounded-full border-2 border-background shadow-sm"
+                            className="w-6 h-6 rounded-full border-2 border-white/30 shadow-sm"
                             style={{ backgroundColor: color }}
                           />
                         ))}
