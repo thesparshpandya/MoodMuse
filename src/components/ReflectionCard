@@ -25,22 +25,22 @@ export const ReflectionCard: React.FC<ReflectionCardProps> = ({
   };
 
   return (
-    <Card className="bg-reflection-gradient border-border/50 shadow-warm">
+    <Card variant="glass" className="shadow-warm hover:shadow-2xl">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-foreground">
+        <CardTitle className="flex items-center gap-2 glass-text-strong">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles className="h-5 w-5 text-primary drop-shadow-sm" />
             <span>AI Reflection</span>
           </div>
-          <Heart className="h-4 w-4 text-primary ml-auto" />
+          <Heart className="h-4 w-4 text-primary ml-auto drop-shadow-sm" />
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/80 glass-text">
           {formatTime(timestamp)} • Mood: {mood}
         </p>
       </CardHeader>
       <CardContent>
         <div className="prose prose-sm max-w-none">
-          <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+          <p className="glass-text-strong leading-relaxed whitespace-pre-wrap">
             {reflection}
           </p>
         </div>
