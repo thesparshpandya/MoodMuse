@@ -1,0 +1,171 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { Heart, Check, Plus } from 'lucide-react';
+
+interface GratitudePracticeProps {
+  duration: number;
+  onComplete: () => void;
+}
+
+export const GratitudePractice: React.FC<GratitudePracticeProps> = ({ duration, onComplete }) => {
+  const [gratitudes, setGratitudes] = useState<string[]>(['', '', '']);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+
+  const handleGratitudeChange = (index: number, value: string) => {
+    const newGratitudes = [...gratitudes];
+    newGratitudes[index] = value;
+    setGratitudes(newGratitudes);
+  };
+
+  const handleNext = () => {
+    if (currentIndex < 2) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      setIsComplete(true);
+    }
+  };
+
+  const handleAddMore = () => {
+    setGratitudes([...gratitudes, '']);
+    setCurrentIndex(gratitudes.length);
+    setIsComplete(false);
+  };
+
+  const completedCount = gratitudes.filter(g => g.trim().length > 0).length;
+  const progress = (completedCount / Math.max(3, gratitudes.length)) * 100;
+
+  const prompts = [
+    "What's one thing that made you smile today?",
+    "Who is someone you're grateful to have in your life?",
+    "What's a simple pleasure you enjoyed recently?",
+    "What's a challenge that helped you grow?",
+    "What's something beautiful you noticed today?",
+    "What's a skill or ability you're thankful for?",
+    "What's a memory that brings you joy?",
+    "What's something in nature you appreciate?"
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <Heart className="h-8 w-8 text-primary mx-auto" />
+        <h3 className="text-2xl font-semibold">Gratitude Practice</h3>
+        <p className="text-muted-foreground">
+          Take time to appreciate the good things in your life
+        </p>
+      </div>
+
+      {/* Progress */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>Progress</span>
+          <span>{completedCount} / {gratitudes.length} completed</span>
+        </div>
+        <Progress value={progress} className="h-2" />
+      </div>
+
+      {!isComplete ? (
+        /* Current Gratitude Input */
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm flex items-center justify-center">
+                {currentIndex + 1}
+              </span>
+              Gratitude {currentIndex + 1}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <p className="text-center text-muted-foreground italic">
+                "{prompts[currentIndex % prompts.length]}"
+              </p>
+            </div>
+
+            <Textarea
+              placeholder="I'm grateful for..."
+              value={gratitudes[currentIndex]}
+              onChange={(e) => handleGratitudeChange(currentIndex, e.target.value)}
+              className="min-h-[120px] text-base"
+              autoFocus
+            />
+
+            <Button 
+              onClick={handleNext}
+              disabled={!gratitudes[currentIndex]?.trim()}
+              className="w-full glass-button"
+            >
+              {currentIndex < 2 ? 'Next Gratitude' : 'Review & Complete'}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Completion View */
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Check className="h-5 w-5 text-green-500" />
+                Your Gratitudes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {gratitudes.filter(g => g.trim()).map((gratitude, index) => (
+                <div key={index} className="p-4 bg-gradient-subtle border border-border/50 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Heart className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
+                    <p className="text-sm">{gratitude}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <div className="flex gap-3">
+            <Button onClick={handleAddMore} variant="outline" className="flex-1">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Another
+            </Button>
+            <Button onClick={onComplete} className="flex-1 glass-button">
+              Complete Practice
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Reflection Prompt */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <h4 className="font-medium">Reflection</h4>
+            <p className="text-sm text-muted-foreground">
+              Notice how it feels to focus on what you're grateful for. 
+              Even small moments of appreciation can shift your perspective 
+              and boost your mood throughout the day.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Benefits */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <h4 className="font-medium">Why Gratitude Matters</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Improves mood and life satisfaction</li>
+              <li>• Reduces stress and negative thinking</li>
+              <li>• Strengthens relationships and social connections</li>
+              <li>• Enhances sleep quality and overall wellbeing</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
