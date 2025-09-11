@@ -1,0 +1,268 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { ActivityType } from '@/types/activity';
+import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
+
+interface PhysicalActivityProps {
+  activity: ActivityType;
+  duration: number;
+  onComplete: () => void;
+}
+
+export const PhysicalActivity: React.FC<PhysicalActivityProps> = ({ activity, duration, onComplete }) => {
+  const [isActive, setIsActive] = useState(false);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState(0);
+
+  const targetTime = duration * 60; // Convert to seconds
+  const progress = (timeElapsed / targetTime) * 100;
+
+  // Different phases for different activities
+  const getActivityPhases = () => {
+    switch (activity.id) {
+      case 'walk':
+        return [
+          { name: 'Warm Up', duration: Math.floor(duration * 0.2), instruction: 'Start with a gentle pace, focus on your breathing' },
+          { name: 'Mindful Walking', duration: Math.floor(duration * 0.6), instruction: 'Walk slowly, notice each step and your surroundings' },
+          { name: 'Cool Down', duration: Math.floor(duration * 0.2), instruction: 'Gradually slow down, take deep breaths' }
+        ];
+      case 'exercise':
+        return [
+          { name: 'Warm Up', duration: Math.floor(duration * 0.15), instruction: 'Light stretching and movement' },
+          { name: 'Active Phase', duration: Math.floor(duration * 0.7), instruction: 'Release tension through movement - jumping jacks, push-ups, or your preferred exercise' },
+          { name: 'Cool Down', duration: Math.floor(duration * 0.15), instruction: 'Gentle stretching and breathing' }
+        ];
+      case 'movement':
+      default:
+        return [
+          { name: 'Gentle Movement', duration: duration, instruction: 'Move your body in ways that feel good - stretching, yoga, or light exercise' }
+        ];
+    }
+  };
+
+  const phases = getActivityPhases();
+  const currentPhaseInfo = phases[currentPhase];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (isActive) {
+      interval = setInterval(() => {
+        setTimeElapsed(time => {
+          const newTime = time + 1;
+          
+          // Check if we need to move to next phase
+          let phaseTime = 0;
+          let phaseIndex = 0;
+          
+          for (let i = 0; i < phases.length; i++) {
+            if (newTime <= phaseTime + phases[i].duration * 60) {
+              phaseIndex = i;
+              break;
+            }
+            phaseTime += phases[i].duration * 60;
+          }
+          
+          if (phaseIndex !== currentPhase) {
+            setCurrentPhase(phaseIndex);
+          }
+          
+          if (newTime >= targetTime) {
+            setIsActive(false);
+            onComplete();
+            return targetTime;
+          }
+          
+          return newTime;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isActive, targetTime, currentPhase, phases, onComplete]);
+
+  const handleStart = () => setIsActive(true);
+  const handlePause = () => setIsActive(false);
+  const handleReset = () => {
+    setIsActive(false);
+    setTimeElapsed(0);
+    setCurrentPhase(0);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getPhaseTimeElapsed = () => {
+    let phaseStart = 0;
+    for (let i = 0; i < currentPhase; i++) {
+      phaseStart += phases[i].duration * 60;
+    }
+    return timeElapsed - phaseStart;
+  };
+
+  const getPhaseProgress = () => {
+    const phaseTimeElapsed = getPhaseTimeElapsed();
+    const phaseDuration = currentPhaseInfo.duration * 60;
+    return Math.min((phaseTimeElapsed / phaseDuration) * 100, 100);
+  };
+
+  const getActivityInstructions = () => {
+    switch (activity.id) {
+      case 'walk':
+        return [
+          'Find a safe place to walk, indoors or outdoors',
+          'Focus on the sensation of your feet touching the ground',
+          'Notice your breathing and the rhythm of your steps',
+          'Observe your surroundings with curiosity',
+          'Let go of racing thoughts with each step'
+        ];
+      case 'exercise':
+        return [
+          'Choose movements that feel good for your body',
+          'Start slowly and build intensity gradually',
+          'Focus on releasing tension and stress',
+          'Breathe deeply throughout the activity',
+          'Listen to your body and adjust as needed'
+        ];
+      case 'movement':
+      default:
+        return [
+          'Move in whatever way feels natural',
+          'Gentle stretching, yoga, or light exercise',
+          'Focus on connecting with your body',
+          'Breathe mindfully as you move',
+          'Release any tension you\'re holding'
+        ];
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <Activity className="h-8 w-8 text-primary mx-auto" />
+        <h3 className="text-2xl font-semibold">{activity.title}</h3>
+        <p className="text-muted-foreground">{activity.description}</p>
+      </div>
+
+      {/* Timer Display */}
+      <Card>
+        <CardContent className="pt-8 pb-8">
+          <div className="text-center space-y-4">
+            {/* Current Phase */}
+            <div className="space-y-2">
+              <div className="text-lg font-semibold text-primary">
+                {currentPhaseInfo.name}
+              </div>
+              <div className="text-3xl font-bold">
+                {formatTime(targetTime - timeElapsed)}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                remaining
+              </div>
+            </div>
+
+            {/* Phase Instruction */}
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <p className="text-center text-muted-foreground">
+                {currentPhaseInfo.instruction}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Progress Bars */}
+      <div className="space-y-4">
+        {/* Current Phase Progress */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>{currentPhaseInfo.name} Progress</span>
+            <span>{Math.round(getPhaseProgress())}%</span>
+          </div>
+          <Progress value={getPhaseProgress()} className="h-2" />
+        </div>
+
+        {/* Overall Progress */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Overall Progress</span>
+            <span>{formatTime(timeElapsed)} / {formatTime(targetTime)}</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+      </div>
+
+      {/* Phase Overview */}
+      {phases.length > 1 && (
+        <Card className="bg-muted/30">
+          <CardHeader>
+            <CardTitle className="text-base">Activity Phases</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {phases.map((phase, index) => (
+                <div 
+                  key={index} 
+                  className={`flex justify-between items-center p-2 rounded ${
+                    index === currentPhase ? 'bg-primary/10 border border-primary/20' : ''
+                  }`}
+                >
+                  <span className={`text-sm ${index === currentPhase ? 'font-medium' : 'text-muted-foreground'}`}>
+                    {phase.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {phase.duration}m
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Controls */}
+      <div className="flex justify-center gap-3">
+        {!isActive ? (
+          <Button onClick={handleStart} className="glass-button">
+            <Play className="h-4 w-4 mr-2" />
+            {timeElapsed > 0 ? 'Resume' : 'Start Activity'}
+          </Button>
+        ) : (
+          <Button onClick={handlePause} variant="outline">
+            <Pause className="h-4 w-4 mr-2" />
+            Pause
+          </Button>
+        )}
+        
+        <Button onClick={handleReset} variant="outline">
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Reset
+        </Button>
+      </div>
+
+      {/* Instructions */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <h4 className="font-medium">Activity Guidelines</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              {getActivityInstructions().map((instruction, index) => (
+                <li key={index}>• {instruction}</li>
+              ))}
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
