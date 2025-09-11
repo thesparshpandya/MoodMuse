@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { detectMood, calculateIntensity, MoodType } from '@/lib/mood-utils';
+import { ActivityModal } from './ActivityModal';
+import { ActivityType } from '@/types/activity';
 import { Heart, Lightbulb, Activity, Coffee, Music, Book } from 'lucide-react';
 
 interface ChatMessage {
@@ -23,6 +25,9 @@ interface Recommendation {
   category: 'mindfulness' | 'physical' | 'social' | 'creative';
   duration: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  instructions?: string[];
+  benefits?: string[];
+  tips?: string[];
 }
 
 const MOOD_RECOMMENDATIONS: Record<MoodType, Recommendation[]> = {
@@ -34,7 +39,16 @@ const MOOD_RECOMMENDATIONS: Record<MoodType, Recommendation[]> = {
       icon: <Heart className="h-4 w-4" />,
       category: 'mindfulness',
       duration: '5 min',
-      difficulty: 'easy'
+      difficulty: 'easy',
+      instructions: [
+        'Find a comfortable seated position',
+        'Place the tip of your tongue behind your upper teeth',
+        'Inhale through your nose for 4 counts',
+        'Hold your breath for 7 counts',
+        'Exhale through your mouth for 8 counts'
+      ],
+      benefits: ['Reduces anxiety and stress', 'Calms the nervous system', 'Improves focus'],
+      tips: ['Don\'t worry if you feel lightheaded at first', 'Focus on making the exhale longer']
     },
     {
       id: 'grounding',
@@ -203,6 +217,8 @@ const MOOD_RECOMMENDATIONS: Record<MoodType, Recommendation[]> = {
 };
 
 export const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = ({ messages }) => {
+  const [selectedActivity, setSelectedActivity] = useState<ActivityType | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const recommendations = useMemo(() => {
     const recentMessages = messages
       .filter(m => m.role === 'user')
@@ -260,6 +276,25 @@ export const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = (
     }
   };
 
+  const handleActivityClick = (recommendation: Recommendation) => {
+    // Convert recommendation to ActivityType
+    const activity: ActivityType = {
+      id: recommendation.id,
+      title: recommendation.title,
+      description: recommendation.description,
+      icon: '🧘', // Default icon as string
+      category: recommendation.category,
+      duration: parseInt(recommendation.duration.split(' ')[0]), // Extract number from "5 min"
+      difficulty: recommendation.difficulty,
+      instructions: recommendation.instructions,
+      benefits: recommendation.benefits,
+      tips: recommendation.tips
+    };
+    
+    setSelectedActivity(activity);
+    setIsModalOpen(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
@@ -287,7 +322,11 @@ export const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = (
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground mb-4">{rec.description}</p>
-              <Button size="sm" className="w-full">
+              <Button 
+                size="sm" 
+                className="w-full glass-button" 
+                onClick={() => handleActivityClick(rec)}
+              >
                 Try This Activity
               </Button>
             </CardContent>
@@ -313,6 +352,15 @@ export const WellnessRecommendations: React.FC<WellnessRecommendationsProps> = (
           </ul>
         </CardContent>
       </Card>
+
+      <ActivityModal
+        activity={selectedActivity}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedActivity(null);
+        }}
+      />
     </div>
   );
 };
