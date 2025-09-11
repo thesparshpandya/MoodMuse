@@ -1,0 +1,264 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Eye, Hand, Ear, Heart, Coffee, Check } from 'lucide-react';
+
+interface GroundingTechniqueProps {
+  duration: number;
+  onComplete: () => void;
+}
+
+type GroundingStep = {
+  sense: string;
+  icon: React.ReactNode;
+  count: number;
+  prompt: string;
+  items: string[];
+  color: string;
+};
+
+export const GroundingTechnique: React.FC<GroundingTechniqueProps> = ({ duration, onComplete }) => {
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [completedItems, setCompletedItems] = useState<Record<number, boolean[]>>({});
+  const [isComplete, setIsComplete] = useState(false);
+
+  const steps: GroundingStep[] = [
+    {
+      sense: 'See',
+      icon: <Eye className="h-5 w-5" />,
+      count: 5,
+      prompt: 'Look around and notice 5 things you can see',
+      items: ['', '', '', '', ''],
+      color: 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+    },
+    {
+      sense: 'Touch',
+      icon: <Hand className="h-5 w-5" />,
+      count: 4,
+      prompt: 'Notice 4 things you can touch or feel',
+      items: ['', '', '', ''],
+      color: 'bg-green-500/10 text-green-700 dark:text-green-300'
+    },
+    {
+      sense: 'Hear',
+      icon: <Ear className="h-5 w-5" />,
+      count: 3,
+      prompt: 'Listen for 3 sounds around you',
+      items: ['', '', ''],
+      color: 'bg-purple-500/10 text-purple-700 dark:text-purple-300'
+    },
+    {
+      sense: 'Smell',
+      icon: <Heart className="h-5 w-5" />,
+      count: 2,
+      prompt: 'Identify 2 scents or smells',
+      items: ['', ''],
+      color: 'bg-orange-500/10 text-orange-700 dark:text-orange-300'
+    },
+    {
+      sense: 'Taste',
+      icon: <Coffee className="h-5 w-5" />,
+      count: 1,
+      prompt: 'Notice 1 taste in your mouth',
+      items: [''],
+      color: 'bg-red-500/10 text-red-700 dark:text-red-300'
+    }
+  ];
+
+  const currentStep = steps[currentStepIndex];
+  const totalSteps = steps.length;
+  const currentStepCompleted = completedItems[currentStepIndex] || [];
+
+  const handleItemCheck = (itemIndex: number, checked: boolean) => {
+    const stepCompleted = { ...completedItems };
+    if (!stepCompleted[currentStepIndex]) {
+      stepCompleted[currentStepIndex] = new Array(currentStep.count).fill(false);
+    }
+    stepCompleted[currentStepIndex][itemIndex] = checked;
+    setCompletedItems(stepCompleted);
+  };
+
+  const isCurrentStepComplete = currentStepCompleted.filter(Boolean).length === currentStep.count;
+  const completedStepsCount = Object.keys(completedItems).filter(stepIndex => {
+    const stepItems = completedItems[parseInt(stepIndex)] || [];
+    const expectedCount = steps[parseInt(stepIndex)].count;
+    return stepItems.filter(Boolean).length === expectedCount;
+  }).length;
+
+  const overallProgress = (completedStepsCount / totalSteps) * 100;
+
+  const handleNext = () => {
+    if (currentStepIndex < totalSteps - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    } else {
+      setIsComplete(true);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  };
+
+  const examples = {
+    0: ['A lamp on the table', 'The color of the walls', 'A book on the shelf', 'Your hands', 'A plant or picture'],
+    1: ['The texture of your clothing', 'The temperature of the air', 'Your feet on the floor', 'The surface you\'re sitting on'],
+    2: ['Background music or TV', 'Traffic outside', 'Your own breathing'],
+    3: ['Fresh air', 'Coffee or food nearby'],
+    4: ['Mint from gum or toothpaste']
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <div className="text-3xl mb-2">🌍</div>
+        <h3 className="text-2xl font-semibold">5-4-3-2-1 Grounding</h3>
+        <p className="text-muted-foreground">
+          Use your five senses to connect with the present moment
+        </p>
+      </div>
+
+      {/* Overall Progress */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>Overall Progress</span>
+          <span>{completedStepsCount} / {totalSteps} steps</span>
+        </div>
+        <Progress value={overallProgress} className="h-2" />
+      </div>
+
+      {!isComplete ? (
+        <>
+          {/* Current Step */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Badge className={currentStep.color} variant="secondary">
+                  {currentStep.icon}
+                  {currentStep.sense}
+                </Badge>
+                <span className="text-lg">{currentStep.prompt}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Checklist */}
+              <div className="space-y-3">
+                {Array.from({ length: currentStep.count }, (_, index) => (
+                  <div key={index} className="flex items-center space-x-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
+                    <Checkbox
+                      checked={currentStepCompleted[index] || false}
+                      onCheckedChange={(checked) => handleItemCheck(index, checked as boolean)}
+                    />
+                    <span className="text-sm flex-1">
+                      {currentStep.sense} item {index + 1}
+                    </span>
+                    {currentStepCompleted[index] && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Examples */}
+              <Card className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium mb-2">Examples:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    {examples[currentStepIndex as keyof typeof examples]?.map((example, index) => (
+                      <li key={index}>• {example}</li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Step Progress */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                  {currentStepCompleted.filter(Boolean).length} / {currentStep.count} identified
+                </span>
+                <span>Step {currentStepIndex + 1} of {totalSteps}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Navigation */}
+          <div className="flex gap-3">
+            {currentStepIndex > 0 && (
+              <Button onClick={handlePrevious} variant="outline" className="flex-1">
+                Previous Step
+              </Button>
+            )}
+            <Button 
+              onClick={handleNext}
+              disabled={!isCurrentStepComplete}
+              className="flex-1 glass-button"
+            >
+              {currentStepIndex < totalSteps - 1 ? 'Next Step' : 'Complete Grounding'}
+            </Button>
+          </div>
+        </>
+      ) : (
+        /* Completion View */
+        <div className="space-y-6">
+          <div className="text-center space-y-4">
+            <div className="text-4xl">✨</div>
+            <h3 className="text-xl font-semibold">Grounding Complete!</h3>
+            <p className="text-muted-foreground">
+              You've successfully used all five senses to ground yourself in the present moment.
+            </p>
+          </div>
+
+          {/* Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Grounding Experience</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {steps.map((step, stepIndex) => {
+                const stepItems = completedItems[stepIndex] || [];
+                const completedCount = stepItems.filter(Boolean).length;
+                
+                return (
+                  <div key={stepIndex} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <Badge className={step.color} variant="secondary">
+                        {step.icon}
+                        {step.sense}
+                      </Badge>
+                      <span className="text-sm">{completedCount} items identified</span>
+                    </div>
+                    <Check className="h-4 w-4 text-green-500" />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Button onClick={onComplete} className="w-full glass-button">
+            Complete Activity
+          </Button>
+        </div>
+      )}
+
+      {/* Benefits */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <h4 className="font-medium">How Grounding Helps</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Reduces anxiety and overwhelming feelings</li>
+              <li>• Brings you back to the present moment</li>
+              <li>• Interrupts racing thoughts and worry cycles</li>
+              <li>• Activates your senses to calm the nervous system</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
