@@ -27,7 +27,7 @@ This journey is less about writing code and more about **building with AI**, sha
 
 ## 🧠 Philosophy
 
-> MoodMuse doesn’t just tell you what you want to hear—it reflects what you *need*, with compassion and clarity.  
+> MoodMuse doesn’t just tell you what you want to hear, it reflects what you *need*, with compassion and clarity.  
 > It’s not therapy, it’s honest self-reflection guided by a caring AI friend.
 
 ---
