@@ -1,0 +1,214 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Play, Pause, RotateCcw } from 'lucide-react';
+
+interface BreathingTimerProps {
+  duration: number; // in minutes
+  onComplete: () => void;
+}
+
+type BreathingPhase = 'inhale' | 'hold' | 'exhale' | 'rest';
+
+const BREATHING_PATTERN = {
+  inhale: 4,
+  hold: 7,
+  exhale: 8,
+  rest: 2
+};
+
+export const BreathingTimer: React.FC<BreathingTimerProps> = ({ duration, onComplete }) => {
+  const [isActive, setIsActive] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<BreathingPhase>('inhale');
+  const [phaseTime, setPhaseTime] = useState(0);
+  const [cycleCount, setCycleCount] = useState(0);
+  const [totalTime, setTotalTime] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const targetTime = duration * 60; // Convert minutes to seconds
+  const currentPhaseDuration = BREATHING_PATTERN[currentPhase];
+  const phaseProgress = (phaseTime / currentPhaseDuration) * 100;
+  const totalProgress = (totalTime / targetTime) * 100;
+
+  useEffect(() => {
+    if (isActive) {
+      intervalRef.current = setInterval(() => {
+        setPhaseTime(prev => {
+          const newTime = prev + 0.1;
+          
+          if (newTime >= currentPhaseDuration) {
+            // Move to next phase
+            setCurrentPhase(current => {
+              switch (current) {
+                case 'inhale': return 'hold';
+                case 'hold': return 'exhale';
+                case 'exhale': return 'rest';
+                case 'rest': 
+                  setCycleCount(count => count + 1);
+                  return 'inhale';
+                default: return 'inhale';
+              }
+            });
+            return 0;
+          }
+          
+          return newTime;
+        });
+        
+        setTotalTime(prev => {
+          const newTotal = prev + 0.1;
+          if (newTotal >= targetTime) {
+            setIsActive(false);
+            onComplete();
+          }
+          return newTotal;
+        });
+      }, 100);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isActive, currentPhaseDuration, targetTime, onComplete]);
+
+  const handleStart = () => setIsActive(true);
+  const handlePause = () => setIsActive(false);
+  
+  const handleReset = () => {
+    setIsActive(false);
+    setCurrentPhase('inhale');
+    setPhaseTime(0);
+    setCycleCount(0);
+    setTotalTime(0);
+  };
+
+  const getPhaseInstruction = () => {
+    switch (currentPhase) {
+      case 'inhale': return 'Breathe in slowly through your nose';
+      case 'hold': return 'Hold your breath gently';
+      case 'exhale': return 'Exhale slowly through your mouth';
+      case 'rest': return 'Rest and prepare for the next breath';
+    }
+  };
+
+  const getPhaseColor = () => {
+    switch (currentPhase) {
+      case 'inhale': return 'text-blue-600 dark:text-blue-400';
+      case 'hold': return 'text-purple-600 dark:text-purple-400';
+      case 'exhale': return 'text-green-600 dark:text-green-400';
+      case 'rest': return 'text-gray-600 dark:text-gray-400';
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-6 text-center">
+      {/* Header */}
+      <div className="space-y-2">
+        <h3 className="text-2xl font-semibold">4-7-8 Breathing Exercise</h3>
+        <p className="text-muted-foreground">
+          Follow the rhythm to calm your nervous system
+        </p>
+      </div>
+
+      {/* Main Breathing Circle */}
+      <Card className="mx-auto max-w-md">
+        <CardContent className="pt-8 pb-8">
+          <div className="relative">
+            {/* Breathing Circle */}
+            <div className="mx-auto w-48 h-48 relative">
+              <div 
+                className={`absolute inset-0 rounded-full border-4 transition-all duration-300 ${
+                  currentPhase === 'inhale' ? 'border-blue-500 scale-110' :
+                  currentPhase === 'hold' ? 'border-purple-500 scale-110' :
+                  currentPhase === 'exhale' ? 'border-green-500 scale-90' :
+                  'border-gray-300 scale-100'
+                }`}
+                style={{
+                  background: `conic-gradient(from 0deg, hsl(var(--primary)) ${phaseProgress}%, transparent ${phaseProgress}%)`
+                }}
+              />
+              
+              <div className="absolute inset-4 rounded-full bg-card border-2 border-border flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <div className={`text-lg font-semibold capitalize ${getPhaseColor()}`}>
+                    {currentPhase}
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {Math.ceil(currentPhaseDuration - phaseTime)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase Instruction */}
+            <div className="mt-6 space-y-2">
+              <p className={`text-lg font-medium ${getPhaseColor()}`}>
+                {getPhaseInstruction()}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Cycle {cycleCount + 1} • {formatTime(totalTime)} / {formatTime(targetTime)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Progress Bar */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>Session Progress</span>
+          <span>{Math.round(totalProgress)}%</span>
+        </div>
+        <Progress value={totalProgress} className="h-2" />
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-center gap-3">
+        {!isActive ? (
+          <Button onClick={handleStart} className="glass-button">
+            <Play className="h-4 w-4 mr-2" />
+            {totalTime > 0 ? 'Resume' : 'Start'}
+          </Button>
+        ) : (
+          <Button onClick={handlePause} variant="outline">
+            <Pause className="h-4 w-4 mr-2" />
+            Pause
+          </Button>
+        )}
+        
+        <Button onClick={handleReset} variant="outline">
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Reset
+        </Button>
+      </div>
+
+      {/* Tips */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="space-y-2">
+            <h4 className="font-medium">Tips for Success</h4>
+            <ul className="text-sm text-muted-foreground space-y-1 text-left">
+              <li>• Find a comfortable seated position</li>
+              <li>• Place the tip of your tongue behind your upper teeth</li>
+              <li>• Focus on making the exhale longer than the inhale</li>
+              <li>• Don't worry if you feel lightheaded at first - it's normal</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
