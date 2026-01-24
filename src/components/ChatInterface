@@ -99,18 +99,52 @@ export const ChatInterface = React.memo(React.forwardRef<HTMLTextAreaElement, Ch
       {/* Header */}
       <div className="bg-gradient-purple px-4 sm:px-6 py-4">
         <h2 className="text-lg sm:text-xl font-semibold text-primary-foreground">Your Safe Space</h2>
-        <p className="text-primary-foreground/80 text-xs sm:text-sm">Express yourself freely - I'm here to listen and understand</p>
+        <p className="text-primary-foreground/80 text-xs sm:text-sm flex items-center gap-1">
+          🔒 Everything you share stays between us
+        </p>
       </div>
 
       {/* Messages */}
       <ScrollArea className="h-80 sm:h-96 p-4 sm:p-6" ref={scrollAreaRef}>
         {messages.length === 0 ? (
-          <div className="text-center py-8 sm:py-12">
-            <Bot className="h-12 sm:h-16 w-12 sm:w-16 text-primary mx-auto mb-4 opacity-60" />
-            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Start Your Conversation</h3>
-            <p className="text-muted-foreground text-xs sm:text-sm px-4">
-              Share what's on your mind. I'm here to listen and understand.
+          <div className="text-center py-6 sm:py-8">
+            <div className="relative mx-auto w-16 h-16 mb-4">
+              <Bot className="h-12 sm:h-14 w-12 sm:w-14 text-primary mx-auto opacity-80" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary/20 rounded-full animate-ping" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+              Your emotional journey starts here
+            </h3>
+            <p className="text-muted-foreground text-sm px-4 mb-6">
+              Everything you share stays between us. I'm here to listen, understand, and reflect.
             </p>
+            
+            {/* Starter Prompts */}
+            <div className="space-y-2 px-2 sm:px-4">
+              <p className="text-xs text-muted-foreground mb-3">Try one of these to get started:</p>
+              <div className="flex flex-col gap-2">
+                {[
+                  "I've been feeling overwhelmed lately...",
+                  "Something happened today that made me think...",
+                  "I want to understand why I react the way I do..."
+                ].map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setInput(prompt)}
+                    className="text-left p-3 rounded-xl bg-muted/50 hover:bg-muted border border-border/50 hover:border-primary/30 transition-all duration-200 text-sm text-foreground hover:scale-[1.01]"
+                  >
+                    "{prompt}"
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Value Preview */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl border border-primary/10">
+              <p className="text-xs text-muted-foreground">
+                ✨ After 5 entries, you'll unlock <span className="text-primary font-medium">Mood Trends</span> and <span className="text-primary font-medium">Emotional Patterns</span>
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
