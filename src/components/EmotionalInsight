@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Calendar, TrendingUp, MessageSquare, ChevronRight } from 'lucide-react';
+import { Brain, Calendar, TrendingUp, MessageSquare, ChevronRight, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-
+import { ShareableInsightCard } from './ShareableInsightCard';
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -166,22 +166,32 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = React.memo(({
           <div className="space-y-4">
             {/* Latest Insight */}
             {insights.length > 0 && (
-              <div className="p-4 rounded-lg bg-gradient-subtle border border-border/50">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/10 border border-primary/10 hover:border-primary/20 transition-all duration-300">
                 <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg ${getInsightColor(insights[insights.length - 1].type)}`}>
+                  <div className={`p-2 rounded-lg ${getInsightColor(insights[insights.length - 1].type)} transition-transform hover:scale-110`}>
                     {getInsightIcon(insights[insights.length - 1].type)}
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                       {insights[insights.length - 1].content}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        {insights[insights.length - 1].type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(insights[insights.length - 1].timestamp)}
-                      </span>
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs capitalize">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          {insights[insights.length - 1].type}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(insights[insights.length - 1].timestamp)}
+                        </span>
+                      </div>
+                      <ShareableInsightCard 
+                        insight={{
+                          content: insights[insights.length - 1].content,
+                          type: insights[insights.length - 1].type,
+                          timestamp: insights[insights.length - 1].timestamp,
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -218,10 +228,10 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = React.memo(({
                 {insights.slice().reverse().map((insight) => (
                   <div
                     key={insight.id}
-                    className="p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors"
+                    className="p-3 rounded-lg border border-border/50 hover:bg-accent/50 hover:border-primary/20 transition-all duration-200 group"
                   >
                     <div className="flex items-start gap-2">
-                      <div className={`p-1.5 rounded ${getInsightColor(insight.type)}`}>
+                      <div className={`p-1.5 rounded transition-transform group-hover:scale-110 ${getInsightColor(insight.type)}`}>
                         {getInsightIcon(insight.type)}
                       </div>
                       <div className="flex-1">
@@ -231,16 +241,24 @@ export const EmotionalInsights: React.FC<EmotionalInsightsProps> = React.memo(({
                             : insight.content
                           }
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline" className="text-xs">
-                            {insight.messagesAnalyzed} messages
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(insight.timestamp)}
-                          </span>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {insight.messagesAnalyzed} messages
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(insight.timestamp)}
+                            </span>
+                          </div>
+                          <ShareableInsightCard 
+                            insight={{
+                              content: insight.content,
+                              type: insight.type,
+                              timestamp: insight.timestamp,
+                            }}
+                          />
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
                 ))}
