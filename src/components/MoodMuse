@@ -23,7 +23,9 @@ import { MoodPatterns } from './MoodPatterns';
 import { MoodTagger } from './MoodTagger';
 import { MoodPreSelector } from './MoodPreSelector';
 import { TypingIndicator } from './TypingIndicator';
+import { AchievementModal } from './AchievementModal';
 import { useOffline } from '@/hooks/useOffline';
+import { useAchievements } from '@/hooks/useAchievements';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ export const MoodMuse: React.FC = React.memo(() => {
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const { isOnline, wasOffline } = useOffline();
+  const { currentAchievement, showModal: showAchievementModal, closeModal: closeAchievementModal, checkAchievements } = useAchievements();
 
   // Optimized hasEntryToday check
   const hasEntryToday = useMemo(() => {
@@ -179,7 +182,11 @@ export const MoodMuse: React.FC = React.memo(() => {
     // Limit stored messages to last 100 to prevent localStorage bloat
     const limitedMessages = newMessages.slice(-100);
     localStorage.setItem('moodmuse_messages', JSON.stringify(limitedMessages));
-  }, []);
+    
+    // Check for achievements based on message count
+    const userMessageCount = newMessages.filter(m => m.role === 'user').length;
+    checkAchievements({ totalEntries: userMessageCount });
+  }, [checkAchievements]);
 
   const generateResponse = useCallback(async (conversation: any[]): Promise<string> => {
     console.log(`Using Gemini model: ${GEMINI_MODEL}`);
@@ -326,7 +333,7 @@ export const MoodMuse: React.FC = React.memo(() => {
               </div>
               <div>
                 <h1 className="text-4xl font-bold glass-text-strong drop-shadow-lg">MoodMuse</h1>
-                <p className="glass-text text-lg drop-shadow-sm">Your Emotional AI Companion</p>
+                <p className="glass-text text-lg drop-shadow-sm">Know Yourself Better, One Entry at a Time</p>
               </div>
             </div>
             <div className="hidden md:flex items-center gap-6">
@@ -552,6 +559,14 @@ export const MoodMuse: React.FC = React.memo(() => {
 
           {/* Floating Dock */}
           <FloatingDock shortcuts={shortcuts} />
+
+          {/* Achievement Modal */}
+          <AchievementModal
+            achievement={currentAchievement}
+            isOpen={showAchievementModal}
+            onClose={closeAchievementModal}
+            onShare={() => toast({ title: "Copied!", description: "Achievement shared to clipboard" })}
+          />
         </div>
       </div>
     </ThemeProvider>
