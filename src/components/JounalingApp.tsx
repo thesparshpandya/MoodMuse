@@ -1,0 +1,271 @@
+import React, { useState, useEffect } from 'react';
+import { MoodSelector } from './MoodSelector';
+import { RichTextEditor } from './RichTextEditor';
+import { ReflectionCard } from './ReflectionCard';
+import { ApiKeySetup } from './ApiKeySetup';
+import { ExportImportControls } from './ExportImportControls';
+import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { BookOpen, Sparkles } from 'lucide-react';
+
+interface JournalReflection {
+  id: string;
+  entry: string;
+  mood: string;
+  reflection: string;
+  timestamp: Date;
+}
+
+export const JournalingApp: React.FC = () => {
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [entry, setEntry] = useState('');
+  const [reflections, setReflections] = useState<JournalReflection[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState<string>('');
+  const { toast } = useToast();
+
+  // Auto-save draft functionality
+  const { loadDraft, clearDraft } = useAutoSave({
+    key: 'journal_entry',
+    data: { entry, selectedMood },
+    enabled: !!(entry || selectedMood)
+  });
+
+  useEffect(() => {
+    // Load API key from localStorage
+    const savedApiKey = localStorage.getItem('huggingface_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+
+    // Load previous reflections
+    const savedReflections = localStorage.getItem('journal_reflections');
+    if (savedReflections) {
+      try {
+        const parsed = JSON.parse(savedReflections);
+        setReflections(parsed.map((r: any) => ({
+          ...r,
+          timestamp: new Date(r.timestamp)
+        })));
+      } catch (error) {
+        console.error('Error loading reflections:', error);
+      }
+    }
+
+    // Load draft
+    const draft = loadDraft();
+    if (draft && !entry && !selectedMood) {
+      if (draft.entry) setEntry(draft.entry);
+      if (draft.selectedMood) setSelectedMood(draft.selectedMood);
+      
+      if (draft.entry || draft.selectedMood) {
+        toast({
+          title: "Draft restored",
+          description: "Your previous draft has been restored.",
+          duration: 3000,
+        });
+      }
+    }
+  }, []);
+
+  const saveApiKey = (key: string) => {
+    localStorage.setItem('huggingface_api_key', key);
+    setApiKey(key);
+    toast({
+      title: "API Key Saved",
+      description: "Your Hugging Face API key has been saved locally.",
+    });
+  };
+
+  const saveReflection = (reflection: JournalReflection) => {
+    const updatedReflections = [reflection, ...reflections];
+    setReflections(updatedReflections);
+    localStorage.setItem('journal_reflections', JSON.stringify(updatedReflections));
+  };
+
+  const handleImport = (importedReflections: JournalReflection[]) => {
+    // Merge with existing reflections, avoiding duplicates
+    const existingIds = new Set(reflections.map(r => r.id));
+    const newReflections = importedReflections.filter(r => !existingIds.has(r.id));
+    
+    if (newReflections.length > 0) {
+      const mergedReflections = [...newReflections, ...reflections]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      setReflections(mergedReflections);
+      localStorage.setItem('journal_reflections', JSON.stringify(mergedReflections));
+    }
+  };
+
+  const generateReflection = async () => {
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your Hugging Face API key first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!entry.trim() || !selectedMood) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a mood and write something in your journal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const prompt = `You are a warm, empathetic AI companion helping someone with their journaling practice. The user is feeling "${selectedMood}" today and shared: "${entry}". Respond with compassion, understanding, and gentle insight. Keep your response personal, supportive, and around 2-3 paragraphs. Avoid being clinical or overly formal - be like a caring friend who truly listens.`;
+
+      const response = await fetch('https://api-inference.huggingface.co/models/HelpingAI/HelpingAI-9B', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 300,
+            temperature: 0.7,
+            return_full_text: false,
+            do_sample: true,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reflection = data[0]?.generated_text || "I'm here for you, and I appreciate you sharing with me today.";
+
+      const newReflection: JournalReflection = {
+        id: Date.now().toString(),
+        entry,
+        mood: selectedMood,
+        reflection,
+        timestamp: new Date(),
+      };
+
+      saveReflection(newReflection);
+      
+      // Clear form and draft
+      setEntry('');
+      setSelectedMood(null);
+      clearDraft();
+
+      toast({
+        title: "Reflection Generated",
+        description: "Your AI reflection has been created with care.",
+      });
+
+    } catch (error) {
+      console.error('Error generating reflection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate reflection. Please check your API key and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-soft-gradient">
+      {/* Header */}
+      <div className="bg-warm-gradient shadow-warm">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-8 w-8 text-primary-foreground" />
+            <div>
+              <h1 className="text-3xl font-bold text-primary-foreground">Mindful Journal</h1>
+              <p className="text-primary-foreground/80">Reflect, understand, grow with AI guidance</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+        {/* API Key Setup */}
+        <ApiKeySetup
+          config={{ mode: 'api', apiKey, baseUrl: '', model: '' }}
+          onConfigSet={(config) => saveApiKey(config.apiKey)}
+          isConfigured={!!apiKey}
+        />
+
+        {/* Export/Import Controls */}
+        <ExportImportControls 
+          reflections={reflections}
+          onImport={handleImport}
+        />
+
+        {/* Journal Input Section */}
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="space-y-6">
+            <div data-section="mood-selector">
+              <MoodSelector selectedMood={selectedMood} onMoodSelect={setSelectedMood} />
+            </div>
+            <div data-section="text-editor">
+              <RichTextEditor
+                value={entry}
+                onChange={setEntry}
+                onSubmit={generateReflection}
+                isLoading={isLoading}
+                selectedMood={selectedMood}
+              />
+            </div>
+          </div>
+
+          {/* Recent Reflection */}
+          {reflections.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Latest Reflection</h3>
+              </div>
+              <ReflectionCard
+                reflection={reflections[0].reflection}
+                mood={reflections[0].mood}
+                timestamp={reflections[0].timestamp}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Previous Reflections */}
+        {reflections.length > 1 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-foreground">Previous Reflections</h3>
+            <div className="grid gap-6">
+              {reflections.slice(1).map((reflection) => (
+                <ReflectionCard
+                  key={reflection.id}
+                  reflection={reflection.reflection}
+                  mood={reflection.mood}
+                  timestamp={reflection.timestamp}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {reflections.length === 0 && (
+          <div className="text-center py-12">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Start Your Journey</h3>
+            <p className="text-muted-foreground">
+              Share your thoughts and feelings to receive personalized AI reflections that help you understand yourself better.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
