@@ -10,7 +10,7 @@ interface AutoSaveOptions {
 
 export const useAutoSave = ({ key, data, delay = 2000, enabled = true }: AutoSaveOptions) => {
   const { toast } = useToast();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const lastSavedRef = useRef<string>('');
 
   useEffect(() => {
