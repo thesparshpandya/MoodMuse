@@ -11,7 +11,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+  <ErrorBoundary showDetails={import.meta.env.DEV}>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
