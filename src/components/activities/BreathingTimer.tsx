@@ -24,7 +24,7 @@ export const BreathingTimer: React.FC<BreathingTimerProps> = ({ duration, onComp
   const [phaseTime, setPhaseTime] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const targetTime = duration * 60; // Convert minutes to seconds
   const currentPhaseDuration = BREATHING_PATTERN[currentPhase];
