@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search, Keyboard, BarChart3, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,10 +31,513 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AIProviderConfig,
+  defaultAIConfig,
+  loadAIConfig,
+  saveAIConfig,
+  isAIConfigured,
+  validateAIConfig,
+  generateAIResponse,
+  describeProvider,
+} from '@/lib/ai-provider';
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  detectedMood?: string;
+  intensity?: number;
+}
+
+const GEMINI_MODEL = 'gemini-1.5-flash';
+
+interface OnboardingData {
+  name: string;
+  preferredTone: 'gentle' | 'neutral' | 'direct';
+  journalingFrequency: 'daily' | 'weekly' | 'custom';
+}
+
+export const MoodMuse: React.FC = React.memo(() => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiConfig, setAiConfig] = useState<AIProviderConfig>(defaultAIConfig);
+  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [userPreferences, setUserPreferences] = useState<OnboardingData | null>(null);
+  const [activeTab, setActiveTab] = useState('journal');
+  const [selectedMoodTags, setSelectedMoodTags] = useState<string[]>([]);
+  const [currentMood, setCurrentMood] = useState<string | null>(null);
+  const [moodIntensity, setMoodIntensity] = useState<number>(3);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const { toast } = useToast();
+  const { isOnline, wasOffline } = useOffline();
+  const { currentAchievement, showModal: showAchievementModal, closeModal: closeAchievementModal, checkAchievements } = useAchievements();
+
+  // Optimized hasEntryToday check
+  const hasEntryToday = useMemo(() => {
+    if (messages.length === 0) return false;
+    const today = new Date().toDateString();
+    return messages.some(m => m.role === 'user' && m.timestamp.toDateString() === today);
+  }, [messages]);
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => createCommonShortcuts({
+    onNewEntry: () => {
+      setActiveTab('journal');
+      setTimeout(() => chatInputRef.current?.focus(), 100);
+    },
+    onSearch: () => setActiveTab('search'),
+    onToggleInsights: () => setActiveTab('insights'),
+    onFocusInput: () => chatInputRef.current?.focus(),
+    onExport: () => {
+      const dataStr = JSON.stringify(messages, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `moodmuse-export-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Data Exported",
+        description: "Your journal data has been exported successfully."
+      });
+    }
+  }), [messages, toast]);
+
+  useKeyboardShortcuts(shortcuts);
+
+  useEffect(() => {
+    // Load saved data
+    setAiConfig(loadAIConfig());
+
+    // Show offline status notification
+    if (wasOffline && isOnline) {
+      toast({
+        title: "Back Online",
+        description: "Your connection has been restored.",
+      });
+    }
+
+    // Load onboarding status and preferences
+    const savedOnboarding = localStorage.getItem('moodmuse_onboarded');
+    const savedPreferences = localStorage.getItem('moodmuse_preferences');
+    
+    if (savedOnboarding === 'true' && savedPreferences) {
+      setIsOnboarded(true);
+      setUserPreferences(JSON.parse(savedPreferences));
+    }
+
+    // Load previous messages
+    const savedMessages = localStorage.getItem('moodmuse_messages');
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        setMessages(parsed.map((m: any) => ({
+          ...m,
+          timestamp: new Date(m.timestamp)
+        })));
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    }
+  }, []);
+
+  const saveAiConfig = useCallback(async (config: AIProviderConfig) => {
+    const isValid = await validateAIConfig(config);
+
+    if (!isValid) {
+      toast({
+        title: config.mode === 'local' ? "Couldn't reach local model" : "Invalid API Key",
+        description:
+          config.mode === 'local'
+            ? "Check the server address and model name, and make sure the server is running."
+            : "Please check your API key and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    saveAIConfig(config);
+    setAiConfig(config);
+    toast({
+      title: config.mode === 'local' ? "Local model connected" : "API Key Saved",
+      description: `MoodMuse will now use ${describeProvider(config)}.`,
+    });
+  }, [toast]);
+
+  const saveMessages = useCallback((newMessages: ChatMessage[]) => {
+    setMessages(newMessages);
+    // Limit stored messages to last 100 to prevent localStorage bloat
+    const limitedMessages = newMessages.slice(-100);
+    localStorage.setItem('moodmuse_messages', JSON.stringify(limitedMessages));
+
+    // Check for achievements based on message count
+    const userMessageCount = newMessages.filter(m => m.role === 'user').length;
+    checkAchievements({ totalEntries: userMessageCount });
+  }, [checkAchievements]);
+
+  const generateResponse = useCallback(async (conversation: any[]): Promise<string> => {
+    return generateAIResponse(aiConfig, conversation);
+  }, [aiConfig]);
+
+  const sendMessage = useCallback(async (content: string) => {
+    if (!isAIConfigured(aiConfig)) {
+      toast({
+        title: "AI Not Connected",
+        description: "Add an API key or connect a local model first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date(),
+    };
+
+    const updatedMessages = [...messages, userMessage];
+    saveMessages(updatedMessages);
+    setIsLoading(true);
+
+    try {
+      // Prepare conversation history for Gemini (exclude system message as Gemini handles it differently)
+      const conversation = [
+        {
+          role: "user",
+          content: "You are an emotionally aware journal companion. Every time I write something, respond with 2–6 sentences of thoughtful reflection. Your tone should feel like a wise, emotionally intelligent friend — warm, supportive, but never overly sugar-coated. Offer gentle insights, ask a grounding question if needed, and always respect the emotion I'm feeling. Avoid long paragraphs. Avoid generic clichés. Be compassionate, real, and human. Think like a blend of a therapist and a brutally honest best friend. Start with a short one-line affirmation or a feeling tag (e.g., 'You're feeling a bit off today. That's okay.') Then, follow with a grounded and caring response. Use markdown formatting like **bold**, _italic_, and > blockquotes to emphasize key insights and make your responses more engaging and readable."
+        },
+        ...updatedMessages.slice(-10).map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      ];
+
+      const aiResponse = await generateResponse(conversation);
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiResponse,
+        timestamp: new Date(),
+      };
+
+      const finalMessages = [...updatedMessages, assistantMessage];
+      saveMessages(finalMessages);
+
+      toast({
+        title: "Response Generated",
+        description: `Generated using ${describeProvider(aiConfig)}.`,
+      });
+
+    } catch (error) {
+      console.error('Error generating response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate response. Please check your API key or try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [aiConfig, messages, saveMessages, toast]);
+
+  const generateEmotionalInsight = useCallback(async (recentMessages: ChatMessage[]): Promise<string> => {
+    const conversation = [
+      {
+        role: "user",
+        content: "You are an emotional insights generator. Based on the user's recent journal entries, provide a 2-3 sentence reflection about their emotional patterns, growth, or recurring themes. Be specific, empathetic, and insightful. Focus on patterns like mood triggers, coping strategies, or emotional growth. Avoid generic advice. Start observations with phrases like 'I've noticed...' or 'Your recent entries show...' Make it feel personal and meaningful."
+      },
+      {
+        role: "user", 
+        content: `Recent journal entries: ${recentMessages.map(m => m.content).join(' | ')}`
+      }
+    ];
+
+    return await generateResponse(conversation);
+  }, [generateResponse]);
+
+  const handleOnboardingComplete = useCallback((data: OnboardingData) => {
+    setUserPreferences(data);
+    setIsOnboarded(true);
+    localStorage.setItem('moodmuse_onboarded', 'true');
+    localStorage.setItem('moodmuse_preferences', JSON.stringify(data));
+  }, []);
+
+  const handlePromptInsert = useCallback((prompt: string) => {
+    // This will be handled by the ChatInterface component
+  }, []);
+
+  if (!isOnboarded) {
+    return (
+      <ThemeProvider>
+        <OnboardingFlow onComplete={handleOnboardingComplete} />
+      </ThemeProvider>
+    );
+  }
+
+  return (
+    <ThemeProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
+      {/* Header with glassmorphism */}
+      <div className="glass-nav backdrop-blur-xl shadow-2xl border-b-0 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 glass rounded-2xl glass-hover">
+                <Brain className="h-8 w-8 text-primary drop-shadow-md" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold glass-text-strong drop-shadow-lg">MoodMuse</h1>
+                <p className="glass-text text-lg drop-shadow-sm">Know Yourself Better, One Entry at a Time</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-6">
+              <button 
+                onClick={() => {
+                  setActiveTab('journal');
+                  setTimeout(() => {
+                    const moodSelector = document.querySelector('[data-section="mood-selector"]');
+                    moodSelector?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+                className="glass-button rounded-lg px-4 py-2 flex items-center gap-2 glass-hover transition-all duration-300 cursor-pointer"
+              >
+                <Sparkles className="h-5 w-5 drop-shadow-sm" />
+                <span className="glass-text-strong drop-shadow-sm">Mood Detection</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('insights')}
+                className="glass-button rounded-lg px-4 py-2 flex items-center gap-2 glass-hover transition-all duration-300 cursor-pointer"
+              >
+                <TrendingUp className="h-5 w-5 drop-shadow-sm" />
+                <span className="glass-text-strong drop-shadow-sm">Emotional Insights</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveTab('journal');
+                  setTimeout(() => {
+                    const textEditor = document.querySelector('[data-section="text-editor"]');
+                    textEditor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }}
+                className="glass-button rounded-lg px-4 py-2 flex items-center gap-2 glass-hover transition-all duration-300 cursor-pointer"
+              >
+                <MessageCircle className="h-5 w-5 drop-shadow-sm" />
+                <span className="glass-text-strong drop-shadow-sm">Empathetic AI</span>
+              </button>
+            </div>
+              {userPreferences?.name && (
+                <span className="glass-text text-sm drop-shadow-sm">
+                  Welcome back, {userPreferences.name}!
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          {/* API Key Setup with glassmorphism */}
+          <div className="mb-8">
+            <div className="glass-card rounded-xl p-6">
+              <ApiKeySetup
+                config={aiConfig}
+                onConfigSet={saveAiConfig}
+                isConfigured={isAIConfigured(aiConfig)}
+              />
+            </div>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+            <TabsList className="glass-strong grid w-full grid-cols-6 border-0 backdrop-blur-lg p-1">
+              <TabsTrigger value="journal" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Journal</span>
+                <span className="xs:hidden">Write</span>
+              </TabsTrigger>
+              <TabsTrigger value="search" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Search</span>
+                <span className="xs:hidden">Find</span>
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Look Back</span>
+                <span className="xs:hidden">History</span>
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Insights</span>
+                <span className="xs:hidden">Trends</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Analytics</span>
+                <span className="xs:hidden">Stats</span>
+              </TabsTrigger>
+              <TabsTrigger value="wellness" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Heart className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Wellness</span>
+                <span className="xs:hidden">Care</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="journal" className="space-y-8">
+              <div className="grid gap-8 lg:grid-cols-3">
+                {/* Chat Interface */}
+                <div className="lg:col-span-2 space-y-6">
+                  <ReflectionPrompts onPromptSelect={handlePromptInsert} />
+                  {isLoading ? (
+                    <TypingIndicator />
+                  ) : (
+                    <ChatInterface
+                      ref={chatInputRef}
+                      messages={messages}
+                      onSendMessage={sendMessage}
+                      isLoading={isLoading}
+                      onPromptInsert={handlePromptInsert}
+                    />
+                  )}
+                </div>
+
+                 {/* Enhanced Sidebar with glassmorphism */}
+                <div className="space-y-6">
+                  {/* Mood Pre-selector */}
+                  <div className="glass-card rounded-xl p-6">
+                    <MoodPreSelector 
+                      selectedMood={currentMood}
+                      onMoodSelect={(mood, intensity) => {
+                        setCurrentMood(mood);
+                        setMoodIntensity(intensity);
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Mood Tagger */}
+                  {currentMood && (
+                    <div className="glass-card rounded-xl p-6">
+                      <MoodTagger 
+                        selectedTags={selectedMoodTags}
+                        onTagsChange={setSelectedMoodTags}
+                        currentMood={currentMood}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Streak Tracker */}
+                  <div className="glass-card rounded-xl p-6">
+                    <StreakTracker hasEntryToday={hasEntryToday} />
+                  </div>
+                  
+                  {/* Emotional Insights */}
+                  <div className="glass-card rounded-xl p-6">
+                    <EmotionalInsights 
+                      messages={messages} 
+                      onGenerateInsight={generateEmotionalInsight}
+                    />
+                  </div>
+                  
+                  {/* Mood Analysis */}
+                  <div className="glass-card rounded-xl p-6">
+                    <MoodAnalysis messages={messages} />
+                  </div>
+                  
+                  {/* Model Status */}
+                  {isAIConfigured(aiConfig) && (
+                    <div className="glass-subtle rounded-xl p-4 glass-hover">
+                      <h4 className="font-medium text-sm glass-text-strong mb-2">Active Model</h4>
+                      <p className="text-xs glass-text">{describeProvider(aiConfig)}</p>
+                      <div className="mt-2 text-xs glass-text flex items-center">
+                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2 shadow-sm"></span>
+                        Ready for emotional support
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="search" className="space-y-8">
+              <SearchInterface 
+                messages={messages}
+                onResultSelect={(message) => {
+                  // Scroll to message or show details
+                  console.log('Selected message:', message);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="timeline" className="space-y-8">
+              <ReflectionTimeline messages={messages} />
+            </TabsContent>
+
+            <TabsContent value="insights" className="space-y-8">
+              <div className="grid gap-8 lg:grid-cols-2">
+                <div className="space-y-6">
+                  <div className="glass-card rounded-xl p-6">
+                    <MoodChart messages={messages} />
+                  </div>
+                  <div className="glass-card rounded-xl p-6">
+                    <EmotionalInsights 
+                      messages={messages} 
+                      onGenerateInsight={generateEmotionalInsight}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="glass-card rounded-xl p-6">
+                    <MoodAnalysis messages={messages} />
+                  </div>
+                  <div className="glass-card rounded-xl p-6">
+                    <MoodPatterns messages={messages} />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-6">
+              <div className="glass-card rounded-xl p-6">
+                <AnalyticsDashboard messages={messages} />
+              </div>
+              <div className="glass-card rounded-xl p-6">
+                <MoodCalendar messages={messages} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="wellness" className="space-y-6">
+              <div className="glass-card rounded-xl p-6">
+                <WellnessRecommendations messages={messages} />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {!isOnline && (
+            <div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-lg shadow-lg backdrop-blur-md border border-destructive/50">
+              Offline mode - changes will sync when connection returns
+            </div>
+          )}
+
+          {/* Floating Dock */}
+          <FloatingDock shortcuts={shortcuts} />
+
+          {/* Achievement Modal */}
+          <AchievementModal
+            achievement={currentAchievement}
+            isOpen={showAchievementModal}
+            onClose={closeAchievementModal}
+            onShare={() => toast({ title: "Copied!", description: "Achievement shared to clipboard" })}
+          />
+        </div>
+      </div>
+    </ThemeProvider>
+  );
+});
+
+MoodMuse.displayName = 'MoodMuse';
   content: string;
   timestamp: Date;
   detectedMood?: string;
