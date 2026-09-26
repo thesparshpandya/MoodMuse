@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Brain, Sparkles, TrendingUp, MessageCircle, Settings, Calendar, Palette, Search, Keyboard, BarChart3, Heart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
